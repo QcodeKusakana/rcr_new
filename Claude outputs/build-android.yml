@@ -1,0 +1,57 @@
+# Compile l'APK Android de l'application RCR dans le cloud GitHub (aucun outil à installer sur votre PC).
+# Déclenchement : onglet « Actions » du dépôt > « Build Android APK » > « Run workflow » (ou à chaque modification de mobile_app/).
+# Résultat : fichier « rcr-apk » téléchargeable en bas de la page de l'exécution (section « Artifacts »).
+#
+# Réglage (facultatif) : Settings > Secrets and variables > Actions > Variables > New repository variable
+#   API_BASE = https://rcr.cd/api/v1      (valeur par défaut si la variable n'existe pas)
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "release = APK de production (HTTPS obligatoire) ; debug = APK de test (HTTP autorisé)"
+        type: choice
+        options: [release, debug]
+        default: release
+  push:
+    paths: ["mobile_app/**", ".github/workflows/build-android.yml"]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Générer les dossiers android/ et ios/ puis appliquer la configuration RCR
+        run: bash tool/setup_platforms.sh
+
+      - name: Analyse du code (informative, n'arrête pas la compilation)
+        run: flutter analyze || true
+
+      - name: Compiler l'APK
+        env:
+          API_BASE: ${{ vars.API_BASE || 'https://rcr.cd/api/v1' }}
+          MODE: ${{ github.event.inputs.mode || 'release' }}
+        run: flutter build apk --$MODE --dart-define=API_BASE="$API_BASE"
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rcr-apk
+          path: mobile_app/build/app/outputs/flutter-apk/*.apk
+          retention-days: 30

@@ -1,0 +1,10 @@
+# API mobile : /api/v1/<ressource> -> index.php (le jeton Bearer est transmis à PHP même en CGI/FastCGI)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)$ index.php/$1 [L,QSA]
+</IfModule>
+<FilesMatch "\.md$">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,68 @@
+# ============================================================
+# RCR — configuration Apache (racine du site)
+# ============================================================
+Options -Indexes -MultiViews
+DirectoryIndex index.php index.html
+
+ErrorDocument 403 /errors/403.php
+ErrorDocument 404 /errors/404.php
+ErrorDocument 500 /errors/500.php
+
+# --- En-têtes de sécurité ---------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
+    Header unset X-Powered-By
+</IfModule>
+
+# --- Fichiers sensibles : jamais servis ---------------------------------------
+<FilesMatch "\.(sql|log|json|md|bak|ini|txt|dist|lock|sh|zip|gz)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(\.|composer\.|README)">
+    Require all denied
+</FilesMatch>
+# Exceptions volontaires (APRÈS la règle ci-dessus) :
+<Files "robots.txt">
+    Require all granted
+</Files>
+
+# --- Redirection HTTPS : décommenter dès que le certificat SSL est actif -----
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^ https://rcr.cd%{REQUEST_URI} [R=301,L]
+# </IfModule>
+
+# --- URLs propres (les anciennes URLs ?pages=... continuent de fonctionner) ---
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^sitemap\.xml$ sitemap.php [L]
+    # Ancienne URL de callback FlexPay (config/flexpay.php : FLEXPAY_CALLBACK_URL) -> point d'entrée unique
+    RewriteRule ^webhook/flexpay/?$ api/flexpay_callback.php [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^article-([0-9]+)/?$ index.php?pages=detail&id=$1 [L,QSA]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(apropos|parti|mission|equipe|organe|partenaire|publication|categories|contact|soutenir|login|register|deconnexion|esp_membre|mention|politique-confidentialite|verifier)/?$ index.php?pages=$1 [L,QSA]
+</IfModule>
+
+# --- Performance : compression et cache navigateur ---------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/xml application/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png  "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>

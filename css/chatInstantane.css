@@ -1,0 +1,288 @@
+span.ligne{
+    position: relative;
+    right: -80px;
+}
+.chatInstantane{
+    position: fixed ;
+    z-index: 4;
+    bottom: 50px ;
+    left: 50px ;
+}
+.chatInstantane .btnChat{
+    width: auto;
+    cursor: pointer ;
+}
+.chatInstantane .btnChat .b_ico{
+    background-image: linear-gradient(to right, #6a4dff 0%, #538df7 100%), radial-gradient(circle at top left, #6a4dff, #538df7) !important;
+    /* background-color: #6a4dff ; */
+    border-radius: 50% ;
+    box-shadow: 0px 0px 40px rgba(0, 0, 0,.4) ;
+    transform: scale(1.4) ;
+    position: relative;
+    z-index: 2;
+    width: 35px ;
+    height: 35px ;
+    display: inline-block;
+    vertical-align: middle ;
+}
+.chatInstantane .btnChat .b_ico .ico{
+    width: 15px ;
+    padding: 10px ;
+    overflow: hidden;
+}
+.chatInstantane .btnChat .b_ico .ico.ico2{
+    position: absolute ;
+    top: 20px ;
+    left: 0px;
+    opacity: 0;
+}
+.chatInstantane .btnChat span{
+    display: inline-block;
+    vertical-align: middle ;
+    color: white ;
+    font-size: 13px ;
+    font-weight: bold ;
+    background-color: #538df7 ;
+    /* background-image: linear-gradient(to right, #538df7 0%, #6a4dff 100%), radial-gradient(circle at top left, #538df7, #6a4dff) !important; */
+    box-shadow: 0px 0px 40px rgba(0, 0, 0,.4) ;
+    border-radius: 50px ;
+    padding: 10px 30px ;
+    position: relative;
+    left: -20px ;
+    width: 160px;
+    padding-left: 40px ;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1) ;
+}
+.chatInstantane .btnChat div.badge{
+    background-color: #ef2a21;
+    display: inline-block;
+    position: absolute;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 2;
+    top: -10px;
+    left: -14px;
+    box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+}
+.chatInstantane .btnChat div.badge.noMessage{
+    display: none ;
+}
+.chatInstantane .btnChat.show span{
+    opacity: 0;
+}
+.chatInstantane .zoneMembres .zoneSearch form input{
+    width: 80% ;
+    padding: 10px ;
+    padding-right: 50px ;
+    border-radius: 20px ;
+    box-shadow: 0px 0px 10px #eee ;
+    border: none ;
+    transition : 0.2s ease-in-out;
+    color: gray ;
+    background-image: url("../media/icones/icons8_Search_100px_1.png") ;
+    background-size: auto 60% ;
+    background-repeat: no-repeat ;
+    background-position: right 15px center ;
+    font-size: 14px ;
+}
+.chatInstantane .zoneMembres{
+    background-color: white ;
+    box-shadow: 0px 0px 40px rgba(0, 0, 0, 0.4);
+    padding: 20px ;
+    position: absolute;
+    bottom: 0px;
+    left: 80px;
+    width: 256px;
+    display: none ;
+    opacity: 0;
+}
+.chatInstantane .zoneMembres .zoneSearch form input:focus{
+    box-shadow: 0px 0px 10px #aaa ;
+    outline: none ;
+}
+.chatInstantane .zoneMembres .membres h2{
+    color: #6a4dff ;
+    font-size: 14px ;
+    margin: 20px 10px ;
+    padding: 0px 10px ;
+    border-left: 8px solid #6a4dff ;
+}
+.chatInstantane .zoneMembres .membres a, 
+.chatInstantane .zoneMembres .membres p, 
+.chatInstantane .zoneMembres .membres img{
+    display: inline-block ;
+    vertical-align: middle ;
+} 
+.chatInstantane .zoneMembres span.statut{
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    position: absolute;
+    left: 35px;
+    top: 44px;
+    border-radius: 50%;
+}
+.chatInstantane .zoneMembres span.statut.online{
+    background-color: #01a901 ;
+}
+.chatInstantane .zoneMembres span.statut.offline{
+    background-color: red ;
+}
+.chatInstantane .zoneMembres .membres img.icoUser{
+    border-radius: 50% ;
+    width: 50px ;
+    margin-right: 10px ;
+}
+.chatInstantane .zoneMembres .membres p{
+    margin-right: 10px ;
+    width: 130px;
+}
+.chatInstantane .zoneMembres .membres a{
+    border-radius: 50% ;
+    padding: 9px 7px ;
+    position: relative;
+}
+.chatInstantane .zoneMembres .membres a span.newMsgUser{
+    position: absolute;
+    left: 25px ;
+    top: 0px;
+    background-color: #01a901 ;
+    padding: 2px ;
+    border-radius: 5px  ;
+    font-size: 11px ;
+}
+.chatInstantane .zoneMembres .membres .listItem{
+    height: 220px;
+}
+.chatInstantane .zoneMembres .membres .item{
+    border-top: 1px solid  #eee ;
+    margin-top: 5px ;
+    padding-top: 5px ;
+    transition: all 0.2s ease ;
+    cursor: pointer;
+    position: relative;
+}
+.chatInstantane .zoneMembres .membres .item:hover{
+    background-color: #eee;
+    border-radius: 4px ;
+}
+.chatInstantane .zoneChat{
+    background-color: #6a4dff ;
+    box-shadow: 0px 0px 40px rgba(0, 0, 0, 0.4);
+    position: absolute ;
+    left: 400px ;
+    /* left: 300px ; */
+    bottom : 0px ;
+    font-size: 14px ;
+    width: 300px;
+    opacity: 0;
+    /* opacity: 1; */
+    display: none ;
+    /* display: block ; */
+    padding: 20px ;
+}
+.chatInstantane .zoneChat .entete{
+    position: absolute;
+    top: -51px;
+    box-sizing: border-box;
+    left: 0px;
+    background-color: white;
+    box-shadow: 0px 0px 20px rgba(0,0,0,0.4);
+    width: 340px;
+    padding: 5px;
+    border-radius: 30px;
+}
+.chatInstantane .zoneChat .entete .icoUser{
+    width: 50px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+}
+.chatInstantane .zoneChat .entete .name{
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0px 0px 0px 10px;
+    font-size: 16px;
+}
+.chatInstantane .zoneChat .entete .close{
+    width: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    position: absolute;
+    right: 20px;
+    top: 21px;
+    background-color: #6a4dff;
+    cursor: pointer;
+}
+.chatInstantane .zoneChat .messages{
+    color: white;
+    text-align: center;
+    box-sizing: border-box;
+    max-height: 265px;
+    overflow-y: scroll;
+    border-bottom: 1px solid #f1f1f1;
+}
+.chatInstantane .zoneChat .messages .message{
+    width : 100% ;
+    display: flex ;
+    flex-wrap: wrap ;
+}
+.chatInstantane .zoneChat .message .messageContent{
+    max-width : 80% ;
+    border-radius: 10px ;
+    text-align: left ;
+    padding: 5px ;
+    margin-bottom: 5px ;
+}
+.chatInstantane .zoneChat .message .messageContent div.date{
+    font-size: 10px ;
+}
+.chatInstantane .zoneChat .messages .message.selfUser{
+    flex-flow: row-reverse;
+}
+.chatInstantane .zoneChat .messages .message.anotherUser{
+    flex-flow: row;
+}
+.chatInstantane .zoneChat .messages .message.selfUser .messageContent{
+    background-color: #dddddd;
+    color: black;
+}
+.chatInstantane .zoneChat .messages .message.anotherUser .messageContent{
+    background-color: rgba(0,0,0,0.2) ;
+}
+.chatInstantane .zoneChat .messages .message .contenu{
+    font-weight : bold ;
+}
+.chatInstantane .zoneChat .newMessage{
+    box-sizing: border-box ;
+    margin-top: 10px;
+}
+.chatInstantane .zoneChat form textarea{
+    width: 256px;
+    height: 66px;
+    box-sizing: border-box;
+    padding: 15px;
+    border: none;
+    transition: 0.2s ease-in-out;
+    background-color: rgba(255,255,255,.3);
+    border-radius: 50px;
+}
+.chatInstantane .zoneChat form textarea:focus{
+    outline: none ;
+}
+.chatInstantane .zoneChat form input.envoyer{
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-image: url(../media/icones/icons8_Email_Send_100px.png);
+    background-size: auto 50%;
+    background-repeat: no-repeat;
+    background-position: center center;
+    /* float: right; */
+    margin-top: 15px;
+    /* margin-left: 10px; */
+}

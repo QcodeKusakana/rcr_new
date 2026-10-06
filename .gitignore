@@ -1,0 +1,23 @@
+# Secrets et configuration propres à chaque environnement (ne jamais versionner)
+config/database.php
+config/flexpay.php
+config/mail.php
+
+# Données générées
+storage/logs/*
+storage/backups/*
+storage/cache/*
+!storage/**/.gitkeep
+tmp_sessions/*
+!tmp_sessions/.gitkeep
+
+# Fichiers envoyés par les utilisateurs (données personnelles)
+media/passeport/*
+media/cv/*
+
+# Dumps et archives
+*.sql
+!migrations/*.sql
+*.zip
+*.gz
+config/api_secret.php
