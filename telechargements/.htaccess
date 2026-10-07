@@ -1,0 +1,9 @@
+# Dossier de diffusion de l'application mobile : y déposer rcr.apk
+# Type MIME correct (le navigateur propose l'installation), pas de listage du dossier, pas de mise en cache d'une ancienne version.
+Options -Indexes
+AddType application/vnd.android.package-archive .apk
+<FilesMatch "\.apk$">
+    Header set Content-Disposition "attachment"
+    Header set Cache-Control "no-cache, must-revalidate"
+    Header set X-Content-Type-Options "nosniff"
+</FilesMatch>

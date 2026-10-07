@@ -35,6 +35,12 @@ if ($p -notmatch 'NSCameraUsageDescription') {
 $p = $p -replace '(<key>CFBundleDisplayName</key>\s*<string>)[^<]*', '${1}RCR'
 Set-Content $plist $p -Encoding UTF8
 
+# Icônes RCR, manifeste assaini, signature de production (non bloquant)
+dart tool/configure_android.dart
+if ($LASTEXITCODE -ne 0) { Write-Warning "Configuration Android partielle (voir ci-dessus)." }
+$icons = 'ios\Runner\Assets.xcassets\AppIcon.appiconset'
+if (Test-Path $icons) { Copy-Item 'tool\icons\ios\*.png' $icons -Force }
+
 flutter pub get
 Write-Host "`nConfiguration terminée. Lancer l'application :" -ForegroundColor Green
 Write-Host "  flutter run --dart-define=API_BASE=http://10.0.2.2:8000/api/v1   (émulateur Android + Laragon sur le port 8000)"

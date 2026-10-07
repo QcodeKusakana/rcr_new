@@ -2,6 +2,10 @@
 # Déclenchement : onglet « Actions » du dépôt > « Build Android APK » > « Run workflow » (ou à chaque modification de mobile_app/).
 # Résultat : fichier « rcr-apk » téléchargeable en bas de la page de l'exécution (section « Artifacts »).
 #
+# Signature de production (recommandé, évite l'alerte « application non reconnue » à chaque nouvelle version) :
+#   Settings > Secrets and variables > Actions > Secrets : ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (voir mobile_app/README.md, section « Signer l'application »).
+#
 # Réglage (facultatif) : Settings > Secrets and variables > Actions > Variables > New repository variable
 #   API_BASE = https://rcr.cd/api/v1      (valeur par défaut si la variable n'existe pas)
 name: Build Android APK
@@ -40,6 +44,22 @@ jobs:
       - name: Générer les dossiers android/ et ios/ puis appliquer la configuration RCR
         run: bash tool/setup_platforms.sh
 
+      - name: Signature de production (si les secrets existent)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > android/app/rcr-release.jks
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
+              "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" "$PWD/android/app/rcr-release.jks" > android/key.properties
+            echo "APK signé avec la clé de production RCR."
+          else
+            echo "::warning::Aucune clé de production (secrets absents) : APK signé avec la clé de débogage."
+          fi
+
       - name: Analyse du code (informative, n'arrête pas la compilation)
         run: flutter analyze || true
 
@@ -47,11 +67,11 @@ jobs:
         env:
           API_BASE: ${{ vars.API_BASE || 'https://rcr.cd/api/v1' }}
           MODE: ${{ github.event.inputs.mode || 'release' }}
-        run: flutter build apk --$MODE --dart-define=API_BASE="$API_BASE"
+        run: flutter build apk --$MODE --target-platform android-arm,android-arm64 --dart-define=API_BASE="$API_BASE"
 
       - name: Publier l'APK
         uses: actions/upload-artifact@v4
         with:
           name: rcr-apk
-          path: mobile_app/build/app/outputs/flutter-apk/*.apk
+          path: mobile_app/build/app/outputs/flutter-apk/app-*.apk
           retention-days: 30

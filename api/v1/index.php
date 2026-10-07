@@ -9,6 +9,11 @@ require_once __DIR__ . '/../../includes/flexpay_client.php';
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $chemin = $_SERVER['PATH_INFO'] ?? '';
+// Mode de secours sans réécriture d'URL ni PATH_INFO : index.php?r=/adhesion (fonctionne sur tout hébergement)
+if (isset($_GET['r']) && is_string($_GET['r'])) {
+    $chemin = $_GET['r'];
+    unset($_GET['r']);
+}
 if ($chemin === '') {
     $uri = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
     $pos = strpos($uri, '/api/v1');

@@ -22,5 +22,9 @@ if ! grep -q NSCameraUsageDescription "$P"; then
   /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Choisissez votre photo de profil pour votre carte de membre RCR.'" "$P" 2>/dev/null || true
 fi
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName RCR" "$P" 2>/dev/null || true
+# Icônes RCR, manifeste assaini, signature de production (non bloquant : le build reste possible en cas d'avertissement)
+dart tool/configure_android.dart || echo "Avertissement : configuration Android partielle (voir ci-dessus)."
+ICONS=ios/Runner/Assets.xcassets/AppIcon.appiconset
+[ -d "$ICONS" ] && cp -f tool/icons/ios/*.png "$ICONS/" || true
 flutter pub get
 echo "Terminé. Exemple : flutter run --dart-define=API_BASE=http://10.0.2.2:8000/api/v1"

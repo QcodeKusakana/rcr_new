@@ -35,16 +35,32 @@ Le HTTP en clair n'est autorisé qu'en **debug** ; la version publiée exige HTT
 
 ## Compiler les versions publiables
 ```
-:: Android — créer d'abord une clé de signature (à conserver précieusement, hors de Git) :
-keytool -genkey -v -keystore rcr-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias rcr
-:: puis suivre https://docs.flutter.dev/deployment/android#sign-the-app (android/key.properties, déjà dans .gitignore)
+:: Android — clé de signature (une seule fois, voir « Signer l'application » ci-dessous) :
+powershell -ExecutionPolicy Bypass -File tool\creer_keystore.ps1
 flutter build appbundle --release --dart-define=API_BASE=https://rcr.cd/api/v1      :: .aab pour le Play Store
 flutter build apk --release --dart-define=API_BASE=https://rcr.cd/api/v1            :: .apk installable directement
 
 :: iPhone (sur Mac) :
 flutter build ipa --release --dart-define=API_BASE=https://rcr.cd/api/v1
 ```
-Icône et écran de démarrage : ajouter `flutter_launcher_icons` si souhaité (le logo est dans `assets/logo.png`).
+Icône : le logo officiel RCR est généré par `tool/make_icons.py` (fichiers prêts dans `tool/icons/`) et installé automatiquement par
+`tool/setup_platforms` (Android : icônes classiques + adaptatives ; iOS : jeu AppIcon complet).
+
+## Signer l'application et éviter l'alerte Google Play Protect
+Google Play Protect affiche « application non reconnue » pour tout APK installé hors Play Store dont le développeur n'est pas
+encore connu de Google. On ne peut pas l'interdire, mais on la réduit fortement :
+1. **Signer avec une clé stable** : exécuter une fois `tool\creer_keystore.ps1`, puis enregistrer les 4 secrets GitHub indiqués
+   (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). Toutes les versions seront signées
+   de la même façon (mises à jour installables par-dessus, réputation de la signature qui se construit). **Sauvegardez le fichier
+   `.jks` et ses mots de passe** : le perdre empêche toute mise à jour.
+2. **Permissions minimales** : l'application ne demande que Internet. Les permissions de stockage, d'installation de paquets ou de
+   superposition d'écran, typiques des applications suspectes, sont retirées explicitement par `tool/configure_android.dart`.
+3. **Héberger l'APK en HTTPS** (`https://rcr.cd/telechargements/rcr.apk`), jamais en HTTP, avec le bon type MIME (`.htaccess` fourni).
+4. **Demander l'analyse à Google** : sur le téléphone, si Play Protect propose « Analyser l'application », accepter une fois ; Google
+   enregistre alors cette signature comme analysée et l'alerte ne revient plus pour les installations suivantes.
+5. **Solution définitive** : publier sur Google Play (compte développeur 25 USD, une fois). L'application est alors installée
+   sans aucun avertissement. Pour une application de dons, c'est aussi la meilleure garantie de confiance auprès des membres.
+
 
 ## Écrans
 Connexion · Adhésion en 4 étapes (adhésion, identité, localisation, photo/mot de passe) · Paiement (Mobile Money / carte, vérification
