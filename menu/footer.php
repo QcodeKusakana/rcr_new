@@ -174,6 +174,20 @@
     }
 
 
+    /* BOUTONS APPLICATION MOBILE */
+    .app-stores { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .app-store {
+        display: inline-flex; align-items: center; gap: 10px; min-width: 150px;
+        padding: 8px 14px; border-radius: 10px; text-decoration: none;
+        background: rgba(241, 233, 216, .08); border: 1px solid rgba(241, 233, 216, .22);
+        color: var(--footer-paper); transition: background .2s ease, transform .2s ease, border-color .2s ease;
+    }
+    .app-store svg { flex-shrink: 0; }
+    .app-store small { display: block; font-size: 10.5px; letter-spacing: .04em; opacity: .75; line-height: 1.1; }
+    .app-store strong { display: block; font-size: 15px; line-height: 1.2; font-weight: 600; }
+    a.app-store:hover { background: var(--footer-gold); border-color: var(--footer-gold); color: var(--footer-ink); transform: translateY(-2px); }
+    .app-store.is-soon { opacity: .55; cursor: default; }
+    @media (max-width: 768px) { .app-stores { justify-content: center; } }
     /* MENTION LÉGALE */
 
     .footer-legal-link {
@@ -302,6 +316,7 @@ if (!$fColonnes) {
         ['titre' => 'Nous rejoindre', 'liens' => [["J'adhère", './adhere/adhesion.php'], ['Je renouvelle', '@renouveler'], ['Je soutiens', '?pages=soutenir']]],
     ];
 }
+$fApp = app_mobile_liens($navBase);
 $fChevron = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 ?>
 <footer id="footer">
@@ -349,6 +364,22 @@ $fChevron = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hi
                     <ul>
                         <li><?= $fChevron ?> <a href="<?= e(menu_url('?pages=contact', $navBase)) ?>">Nous contacter</a></li>
                     </ul>
+                    <h4 class="mt-4">Application mobile</h4>
+                    <div class="app-stores">
+                        <?php foreach ([['android', 'Android', 'Android', '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.5 11.5 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38l1.84 3.18A10.9 10.9 0 0 0 1 18h22a10.9 10.9 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z"/></svg>'], ['ios', 'iPhone', 'iPhone', '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.02-1.5-2.62-1.7-3.19-1.73-1.36-.14-2.65.8-3.34.8-.69 0-1.75-.78-2.88-.76-1.48.02-2.85.86-3.61 2.19-1.54 2.67-.39 6.62 1.1 8.79.73 1.06 1.6 2.25 2.74 2.21 1.1-.04 1.52-.71 2.85-.71 1.33 0 1.7.71 2.87.69 1.18-.02 1.93-1.08 2.65-2.15.84-1.23 1.18-2.42 1.2-2.48-.03-.01-2.3-.88-2.27-3.54ZM14.2 6.1c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.68-.92 2.67.97.07 1.96-.49 2.56-1.22Z"/></svg>']] as [$k, $lib, $nom, $svg]): ?>
+                        <?php if ($fApp[$k] !== ''): ?>
+                        <a class="app-store" href="<?= e($fApp[$k]) ?>" rel="noopener" <?= preg_match('/\.apk(\?|$)/i', $fApp[$k]) ? 'download' : 'target="_blank"' ?> aria-label="Télécharger l'application RCR pour <?= e($lib) ?>">
+                            <?= $svg ?>
+                            <span><small>Télécharger pour</small><strong><?= e($nom) ?></strong></span>
+                        </a>
+                        <?php else: ?>
+                        <span class="app-store is-soon" aria-label="Application <?= e($lib) ?> bientôt disponible" title="Bientôt disponible">
+                            <?= $svg ?>
+                            <span><small><?= e($lib) ?></small><strong>Bientôt</strong></span>
+                        </span>
+                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
                     <?php if ($fReseaux): ?>
                     <h4 class="mt-4">Suivez-nous sur les réseaux sociaux</h4>
                     <div class="social-links mt-3">

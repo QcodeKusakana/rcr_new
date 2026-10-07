@@ -12,6 +12,22 @@ $apply = in_array('--apply', $argv ?? [], true);
 $existe = false;
 try { $bdd->query('SELECT 1 FROM api_tokens LIMIT 1'); $existe = true; } catch (Throwable $e) {}
 
+/* Réglages « application mobile » (jamais d'écrasement) */
+$reglages = [
+    ['app_android_url', '', 'contact', "Application Android : lien de téléchargement (URL https ou chemin, ex. telechargements/rcr.apk)", 'url'],
+    ['app_ios_url', '', 'contact', "Application iPhone : lien App Store / TestFlight (vide = « Bientôt »)", 'url'],
+];
+try {
+    $chk = $bdd->prepare("SELECT COUNT(*) FROM site_reglages WHERE cle = ? AND langue = 'fr'");
+    $ins = $bdd->prepare("INSERT INTO site_reglages (cle, langue, valeur, groupe, libelle, type) VALUES (?, 'fr', ?, ?, ?, ?)");
+    foreach ($reglages as [$cle, $val, $grp, $lib, $type]) {
+        $chk->execute([$cle]);
+        if ((int) $chk->fetchColumn() > 0) { echo "réglage $cle : déjà présent.\n"; continue; }
+        echo ($apply ? 'Création' : 'À créer') . " : réglage $cle\n";
+        if ($apply) { $ins->execute([$cle, $val, $grp, $lib, $type]); }
+    }
+} catch (Throwable $e) { echo "Réglages ignorés (site_reglages absente) : " . $e->getMessage() . "\n"; }
+
 if ($existe) { echo "api_tokens : déjà présente, rien à faire.\n"; exit(0); }
 echo ($apply ? 'Création' : 'À créer') . " : table api_tokens\n";
 if (!$apply) { echo "Simulation : relancez avec --apply pour appliquer.\n"; exit(0); }

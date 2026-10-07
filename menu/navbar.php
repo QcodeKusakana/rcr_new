@@ -437,6 +437,16 @@ $isProgressActive = in_array(
 }
 
 
+/* Icônes application mobile (Android / iPhone) */
+.member-app { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+.member-app > a, .member-app > .app-soon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0 !important; font-size: 18px;
+    color: var(--white) !important; border: 1px solid rgba(241, 233, 216, .18); background: rgba(241, 233, 216, .04);
+}
+.member-app > .app-soon { opacity: .45; cursor: default; }
+.member-app > a:hover { background: rgba(241, 233, 216, .12) !important; }
+
 /* =========================================================
    MEMBRE CONNECTÉ
 ========================================================= */
@@ -589,6 +599,7 @@ $isProgressActive = in_array(
         justify-content: center;
     }
 
+    .member-app { margin: 8px 0 0; justify-content: center; }
     .member-login > a,
     .member-connected > a {
         margin-left: 0;
@@ -845,6 +856,16 @@ else: /* secours : menu historique si la table site_menu est vide ou absente */ 
                 </li>
 
 <?php endif; ?>
+<?php $nApp = app_mobile_liens(); ?>
+                <li class="member-app">
+                    <?php foreach ([['android', 'Android', 'bi-android2'], ['ios', 'iPhone', 'bi-apple']] as [$k, $lib, $ico]): ?>
+                    <?php if ($nApp[$k] !== ''): ?>
+                    <a href="<?= htmlspecialchars($nApp[$k], ENT_QUOTES, 'UTF-8') ?>" title="Télécharger l'application <?= $lib ?>" aria-label="Application <?= $lib ?>" <?= preg_match('/\.apk(\?|$)/i', $nApp[$k]) ? 'download' : 'target="_blank" rel="noopener"' ?>><i class="bi <?= $ico ?>"></i></a>
+                    <?php else: ?>
+                    <span class="app-soon" title="Application <?= $lib ?> : bientôt disponible" aria-label="Application <?= $lib ?> bientôt disponible"><i class="bi <?= $ico ?>"></i></span>
+                    <?php endif; ?>
+                    <?php endforeach; ?>
+                </li>
                 <!-- CONNEXION / MEMBRE -->
 
                 <?php if ($isLoggedIn): ?>

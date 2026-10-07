@@ -112,6 +112,26 @@ if (!function_exists('reglage')) {
     }
 }
 
+if (!function_exists('app_mobile_liens')) {
+    /**
+     * Liens de téléchargement de l'application mobile (réglages app_android_url / app_ios_url).
+     * Accepte une URL https://… ou un chemin relatif au site (ex. telechargements/rcr.apk) ; tout autre
+     * schéma (javascript:, data:…) est refusé. Valeur vide = lien non publié.
+     * @return array{android:string,ios:string}
+     */
+    function app_mobile_liens(string $base = ''): array
+    {
+        $out = ['android' => '', 'ios' => ''];
+        foreach (['android' => 'app_android_url', 'ios' => 'app_ios_url'] as $k => $cle) {
+            $u = trim(reglage($cle));
+            if ($u === '') { continue; }
+            if (preg_match('#^https?://#i', $u)) { $out[$k] = $u; }
+            elseif (!preg_match('#^[a-z][a-z0-9+.-]*:#i', $u) && !str_starts_with($u, '//')) { $out[$k] = $base . ltrim($u, '/'); }
+        }
+        return $out;
+    }
+}
+
 /* --------------------------------------------------------------------- BLOCS */
 
 if (!function_exists('blocs')) {
