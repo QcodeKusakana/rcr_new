@@ -50,14 +50,18 @@ jobs:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          MODE: ${{ github.event.inputs.mode || 'release' }}
         run: |
           if [ -n "$KS_B64" ]; then
             echo "$KS_B64" | base64 -d > android/app/rcr-release.jks
             printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
               "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" "$PWD/android/app/rcr-release.jks" > android/key.properties
             echo "APK signé avec la clé de production RCR."
+          elif [ "$MODE" = "release" ]; then
+            echo "::error::Clé de signature absente. Un APK « release » signé avec une clé jetable ne peut PAS être installé par-dessus une version précédente (« application non installée ») et déclenche Play Protect. Créez la clé une seule fois (mobile_app/tool/creer_keystore.ps1) puis ajoutez les 4 secrets ANDROID_* (voir mobile_app/README.md). Pour un simple test, relancez en mode « debug »."
+            exit 1
           else
-            echo "::warning::Aucune clé de production (secrets absents) : APK signé avec la clé de débogage."
+            echo "::warning::Mode debug : APK signé avec la clé de débogage (test uniquement)."
           fi
 
       - name: Analyse du code (informative, n'arrête pas la compilation)
@@ -67,11 +71,33 @@ jobs:
         env:
           API_BASE: ${{ vars.API_BASE || 'https://rcr.cd/api/v1' }}
           MODE: ${{ github.event.inputs.mode || 'release' }}
-        run: flutter build apk --$MODE --target-platform android-arm,android-arm64 --dart-define=API_BASE="$API_BASE"
+          RUN_NUMBER: ${{ github.run_number }}
+        # --build-number : le versionCode augmente à chaque exécution, condition pour qu'Android accepte une mise à jour.
+        # android-x64 : émulateurs et Chromebooks ; arm/arm64 : tous les téléphones.
+        run: flutter build apk --$MODE --build-number="$RUN_NUMBER" --target-platform android-arm,android-arm64,android-x64 --dart-define=API_BASE="$API_BASE"
+
+      - name: Vérifier la signature et calculer l'empreinte
+        run: |
+          APK=$(ls build/app/outputs/flutter-apk/app-*.apk | head -1)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/sign.txt
+          SHA=$(grep -m1 "certificate SHA-256" /tmp/sign.txt | awk '{print $NF}')
+          cp "$APK" build/app/outputs/flutter-apk/rcr.apk
+          sha256sum build/app/outputs/flutter-apk/rcr.apk > build/app/outputs/flutter-apk/rcr.apk.sha256
+          {
+            echo "### APK RCR"
+            echo "- Mode : \`${MODE:-release}\` · build n° ${{ github.run_number }}"
+            echo "- Empreinte SHA-256 du certificat de signature : \`$SHA\`"
+            echo "- Elle doit rester **identique** d'une version à l'autre (sinon les mises à jour ne s'installent pas)."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          MODE: ${{ github.event.inputs.mode || 'release' }}
 
       - name: Publier l'APK
         uses: actions/upload-artifact@v4
         with:
           name: rcr-apk
-          path: mobile_app/build/app/outputs/flutter-apk/app-*.apk
+          path: |
+            mobile_app/build/app/outputs/flutter-apk/rcr.apk
+            mobile_app/build/app/outputs/flutter-apk/rcr.apk.sha256
           retention-days: 30

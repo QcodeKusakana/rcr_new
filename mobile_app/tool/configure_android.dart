@@ -17,7 +17,9 @@ void main() {
     exit(1);
   }
   _icones();
+  _demarrage();
   _manifeste();
+  _sdk();
   _signature();
   stdout.writeln('Configuration Android RCR appliquée.');
 }
@@ -49,6 +51,32 @@ void _icones() {
       ..writeAsStringSync(adaptive);
   }
   stdout.writeln('✓ icônes RCR installées');
+}
+
+/// Écran de démarrage natif (avant que Flutter ne s'affiche) : fond bleu RCR + logo, sans flash blanc.
+void _demarrage() {
+  const res = 'android/app/src/main/res';
+  File('$res/drawable/launch_background.xml')
+    ..parent.createSync(recursive: true)
+    ..writeAsStringSync('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
+        '    <item android:drawable="@color/ic_launcher_background"/>\n'
+        '    <item>\n'
+        '        <bitmap android:gravity="center" android:src="@mipmap/ic_launcher_foreground"/>\n'
+        '    </item>\n'
+        '</layer-list>\n');
+  // Android 12+ : écran de démarrage système (fond bleu + icône RCR).
+  File('$res/values-v31/styles.xml')
+    ..parent.createSync(recursive: true)
+    ..writeAsStringSync('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<resources>\n'
+        '    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">\n'
+        '        <item name="android:windowBackground">@drawable/launch_background</item>\n'
+        '        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>\n'
+        '        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>\n'
+        '    </style>\n'
+        '</resources>\n');
+  stdout.writeln('✓ écran de démarrage RCR');
 }
 
 void _manifeste() {
@@ -83,6 +111,27 @@ void _manifeste() {
     x = x.replaceFirstMapped(RegExp(r'<manifest[^>]*>'), (m) => '${m[0]}${lignes.toString()}');
   }
 
+  // Matériel facultatif : sans ces déclarations, une bibliothèque (image_picker -> appareil photo) peut rendre l'APK
+  // « incompatible » avec certains téléphones (sans appareil photo arrière, tablettes…).
+  const facultatifs = [
+    'android.hardware.camera',
+    'android.hardware.camera.autofocus',
+    'android.hardware.camera.front',
+    'android.hardware.touchscreen',
+    'android.hardware.faketouch',
+    'android.hardware.telephony',
+    'android.hardware.wifi',
+  ];
+  final feat = StringBuffer();
+  for (final h in facultatifs) {
+    if (!x.contains('android:name="$h"')) {
+      feat.write('\n    <uses-feature android:name="$h" android:required="false"/>');
+    }
+  }
+  if (feat.isNotEmpty) {
+    x = x.replaceFirstMapped(RegExp(r'<manifest[^>]*>'), (m) => '${m[0]}${feat.toString()}');
+  }
+
   x = _attr(x, 'android:label', 'RCR');
   x = _attr(x, 'android:icon', '@mipmap/ic_launcher');
   x = _attr(x, 'android:roundIcon', '@mipmap/ic_launcher_round');
@@ -90,6 +139,23 @@ void _manifeste() {
   x = _attr(x, 'android:usesCleartextTraffic', 'false'); // HTTP autorisé uniquement par le manifeste debug
   f.writeAsStringSync(x);
   stdout.writeln('✓ manifeste assaini (permissions, icônes, HTTPS)');
+}
+
+/// SDK minimal 23 (Android 6.0) : couvre ~99 % des téléphones en circulation et satisfait flutter_secure_storage.
+/// Un minSdk trop haut est la première cause de « application non compatible / non installée » sur les vieux téléphones.
+void _sdk() {
+  for (final nom in ['android/app/build.gradle.kts', 'android/app/build.gradle']) {
+    final f = File(nom);
+    if (!f.existsSync()) continue;
+    var g = f.readAsStringSync();
+    final avant = g;
+    g = g.replaceAll(RegExp(r'minSdk(Version)?\s*=\s*flutter\.minSdkVersion'), nom.endsWith('.kts') ? 'minSdk = 23' : 'minSdkVersion 23');
+    g = g.replaceAll(RegExp(r'minSdkVersion\s+flutter\.minSdkVersion'), 'minSdkVersion 23');
+    if (g != avant) {
+      f.writeAsStringSync(g);
+      stdout.writeln('✓ minSdk = 23 (Android 6.0 et plus)');
+    }
+  }
 }
 
 /// Définit (ou remplace) un attribut de la balise <application>.

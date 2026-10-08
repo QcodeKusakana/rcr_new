@@ -46,26 +46,42 @@ flutter build ipa --release --dart-define=API_BASE=https://rcr.cd/api/v1
 Icône : le logo officiel RCR est généré par `tool/make_icons.py` (fichiers prêts dans `tool/icons/`) et installé automatiquement par
 `tool/setup_platforms` (Android : icônes classiques + adaptatives ; iOS : jeu AppIcon complet).
 
-## Signer l'application et éviter l'alerte Google Play Protect
-Google Play Protect affiche « application non reconnue » pour tout APK installé hors Play Store dont le développeur n'est pas
-encore connu de Google. On ne peut pas l'interdire, mais on la réduit fortement :
-1. **Signer avec une clé stable** : exécuter une fois `tool\creer_keystore.ps1`, puis enregistrer les 4 secrets GitHub indiqués
-   (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). Toutes les versions seront signées
-   de la même façon (mises à jour installables par-dessus, réputation de la signature qui se construit). **Sauvegardez le fichier
-   `.jks` et ses mots de passe** : le perdre empêche toute mise à jour.
-2. **Permissions minimales** : l'application ne demande que Internet. Les permissions de stockage, d'installation de paquets ou de
-   superposition d'écran, typiques des applications suspectes, sont retirées explicitement par `tool/configure_android.dart`.
-3. **Héberger l'APK en HTTPS** (`https://rcr.cd/telechargements/rcr.apk`), jamais en HTTP, avec le bon type MIME (`.htaccess` fourni).
-4. **Demander l'analyse à Google** : sur le téléphone, si Play Protect propose « Analyser l'application », accepter une fois ; Google
-   enregistre alors cette signature comme analysée et l'alerte ne revient plus pour les installations suivantes.
-5. **Solution définitive** : publier sur Google Play (compte développeur 25 USD, une fois). L'application est alors installée
-   sans aucun avertissement. Pour une application de dons, c'est aussi la meilleure garantie de confiance auprès des membres.
+## Installer sur le maximum de téléphones (et ce qui reste hors de notre contrôle)
 
+**Il est impossible de garantir l'installation sur « tous » les téléphones et sous toutes les protections** : Google Play Protect, Samsung Auto Blocker,
+les contrôles parentaux ou d'entreprise et, bientôt, la vérification des développeurs d'Android sont des décisions du téléphone, pas de l'APK.
+Ce qui est sous notre contrôle est appliqué (voir `tool/configure_android.dart` et `.github/workflows/build-android.yml`) :
+
+1. **Clé de signature stable (cause n°1 des « application non installée »)** : exécuter UNE fois `tool\creer_keystore.ps1`, puis enregistrer les 4 secrets GitHub
+   (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). Le workflow **refuse désormais** de produire un APK « release »
+   sans cette clé : une clé jetable change à chaque build, Android refuse alors de mettre à jour l'application et Play Protect se méfie.
+   Sauvegardez le `.jks` et ses mots de passe (perdre la clé = plus aucune mise à jour possible).
+2. **Numéro de version croissant** : `--build-number` reçoit le numéro d'exécution GitHub, donc chaque APK peut s'installer par-dessus le précédent.
+3. **Compatibilité large** : Android 6.0 et plus (minSdk 23), processeurs arm, arm64 et x64, matériel (appareil photo, écran tactile, téléphonie) déclaré
+   facultatif pour ne jamais exclure un modèle.
+4. **Permissions minimales** : Internet uniquement. Stockage, installation de paquets, superposition d'écran et liste des applications sont retirés
+   explicitement ; sauvegarde système désactivée ; trafic HTTP interdit en production.
+5. **Contrôle automatique** : à chaque build, `apksigner verify` est exécuté et l'empreinte SHA-256 du certificat est affichée dans le résumé de l'exécution.
+   Elle doit rester **identique** d'une version à l'autre. Un fichier `rcr.apk.sha256` est fourni pour vérifier le téléchargement.
+6. **Hébergement** : servir l'APK en HTTPS (`https://rcr.cd/telechargements/rcr.apk`) avec le type MIME `application/vnd.android.package-archive`.
+
+### Si Play Protect affiche encore un avertissement
+- Sur le téléphone : « Plus de détails » puis « Installer quand même », ou « Analyser l'application » (Google mémorise alors la signature).
+- Samsung : désactiver temporairement « Auto Blocker » (Paramètres > Sécurité et confidentialité).
+- Autoriser « Installer des applications inconnues » pour le navigateur ou le gestionnaire de fichiers utilisé.
+- Désinstaller toute ancienne version signée avec une autre clé (clé de débogage) avant la première installation signée avec la clé RCR.
+
+### Les deux solutions durables
+1. **Google Play** (compte développeur, frais uniques de 25 USD) : installation sans avertissement. Commencer par un test interne ou fermé.
+2. **Vérification des développeurs Android** : selon la page officielle de Google (https://developer.android.com/developer-verification), les protections
+   débutent le 30 septembre 2026 au Brésil, en Indonésie, à Singapour et en Thaïlande, puis s'étendent à tous les téléphones certifiés à partir de 2027.
+   Il faudra enregistrer l'application (nom de paquet `cd.rcr.rcr_mobile` + clé de signature) dans la Android Developer Console : une raison de plus
+   de garder la même clé pour toujours.
 
 ## Écrans
 Connexion · Adhésion en 4 étapes (adhésion, identité, localisation, photo/mot de passe) · Paiement (Mobile Money / carte, vérification
 temps réel, confirmation tardive gérée) · Accueil (carte de membre, échéance, jours restants) · Historique + reçus PDF ·
-Dons (ponctuel/régulier, avec ou sans compte) + renouvellement · Carte de membre PDF · Changement de mot de passe.
+Dons (ponctuel/régulier, avec ou sans compte) + renouvellement · Carte de membre PDF · Changement de mot de passe · **Mon compte** : abonnement, identité, circonscriptions, parrainage (lien, filleuls, commission estimée), fiche d'adhésion et carte PDF.
 
 ## Avant la mise en ligne
 1. HTTPS actif sur `rcr.cd` (l'application refuse le HTTP en production).
@@ -79,5 +95,5 @@ Dons (ponctuel/régulier, avec ou sans compte) + renouvellement · Carte de memb
 ## Limites connues de cette première version
 - Code écrit et relu **sans compilateur Flutter** (non disponible dans l'environnement de génération) : lancer `flutter analyze`
   puis corriger d'éventuelles erreurs mineures ; l'API, elle, est testée de bout en bout (49 tests).
-- Pas de CV joint depuis l'application (facultatif sur le site), pas de parrainage/encadreur, pas de notifications push.
+- Pas de CV joint depuis l'application (facultatif sur le site), pas de notifications push. Le profil est en lecture seule (comme sur le site).
 - Dons réguliers : comme sur le site, pas de prélèvement automatique (FlexPay n'en propose pas) ; l'application signale « À renouveler ».

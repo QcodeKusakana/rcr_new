@@ -23,6 +23,7 @@ const ADMIN_PAGE_PERMS = [
     'cotisations'    => ['paiements.voir', 'paiements.voir'],
     'dons'           => ['paiements.voir', 'paiements.voir'],
     'paiements'      => ['paiements.voir', 'paiements.valider'],
+    'paiement_diagnostic' => ['paiements.voir', 'paiements.valider'],
     'contenus'       => ['contenu.gerer', 'contenu.gerer'],
     'administrateurs' => ['admins.gerer', 'admins.gerer'],
     'journaux'       => ['logs.voir', 'logs.voir'],

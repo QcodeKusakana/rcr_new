@@ -128,3 +128,56 @@ class Suivi {
   final String? cle; // lien de suivi d'un don sans compte
   Suivi({required this.don, required this.id, this.cle});
 }
+
+/// Identité, circonscriptions et abonnement (GET /me/profil) : mêmes informations que l'espace membre du site.
+class Profil {
+  final String code, nom, postnom, prenom, email, telephone, civilite, nationalite, adresse, ville;
+  final String province, territoire, secteur, categorie, grade, periode, devise;
+  final String? dateNaissance, dateAdhesion;
+  final double prixMensuel, totalPeriode;
+  final int mois;
+
+  Profil({
+    required this.code, required this.nom, required this.postnom, required this.prenom, required this.email, required this.telephone,
+    required this.civilite, required this.nationalite, required this.adresse, required this.ville, required this.province,
+    required this.territoire, required this.secteur, required this.categorie, required this.grade, required this.periode,
+    required this.devise, this.dateNaissance, this.dateAdhesion, required this.prixMensuel, required this.totalPeriode, required this.mois,
+  });
+
+  factory Profil.fromJson(Map<String, dynamic> j) => Profil(
+        code: _s(j['code']), nom: _s(j['nom']), postnom: _s(j['postnom']), prenom: _s(j['prenom']), email: _s(j['email']),
+        telephone: _s(j['telephone']), civilite: _s(j['civilite']), nationalite: _s(j['nationalite']), adresse: _s(j['adresse']),
+        ville: _s(j['ville']), province: _s(j['province']), territoire: _s(j['territoire']), secteur: _s(j['secteur']),
+        categorie: _s(j['categorie']), grade: _s(j['grade']), periode: _s(j['periode']),
+        devise: _s(j['devise']).isEmpty ? 'USD' : _s(j['devise']),
+        dateNaissance: j['date_naissance']?.toString(), dateAdhesion: j['date_adhesion']?.toString(),
+        prixMensuel: _d(j['prix_mensuel']), totalPeriode: _d(j['total_periode']), mois: _i(j['mois']) ?? 1,
+      );
+}
+
+class Filleul {
+  final String nom, code, grade;
+  final String? dateAdhesion;
+  final int nbPaiements;
+  final double totalPaye, commission;
+  Filleul({required this.nom, required this.code, required this.grade, this.dateAdhesion, required this.nbPaiements,
+      required this.totalPaye, required this.commission});
+
+  factory Filleul.fromJson(Map<String, dynamic> j) => Filleul(
+        nom: _s(j['nom']), code: _s(j['code']), grade: _s(j['grade']), dateAdhesion: j['date_adhesion']?.toString(),
+        nbPaiements: _i(j['nb_paiements']) ?? 0, totalPaye: _d(j['total_paye']), commission: _d(j['commission']),
+      );
+}
+
+/// Programme de parrainage (GET /me/parrainage) : lecture seule, aucun versement n'est déclenché par l'application.
+class Parrainage {
+  final String lien, message;
+  final double taux, commissionTotale;
+  final List<Filleul> filleuls;
+  Parrainage({required this.lien, required this.message, required this.taux, required this.commissionTotale, required this.filleuls});
+
+  factory Parrainage.fromJson(Map<String, dynamic> j) => Parrainage(
+        lien: _s(j['lien']), message: _s(j['message']), taux: _d(j['taux']), commissionTotale: _d(j['commission_totale']),
+        filleuls: (j['filleuls'] as List? ?? []).map((e) => Filleul.fromJson(e as Map<String, dynamic>)).toList(),
+      );
+}

@@ -2,8 +2,8 @@
 /**
  * Tâches planifiées RCR (CLI uniquement). À lancer chaque jour (ex. 02h00) :
  *   0 2 * * *  php /chemin/du/site/tools/cron.php >> /chemin/du/site/storage/logs/cron.log 2>&1
- * Et toutes les 15 minutes pour le rattrapage des paiements :
- *   *\/15 * * * *  php /chemin/du/site/tools/cron.php --paiements
+ * Et CHAQUE MINUTE pour le rattrapage des paiements (calendrier 10 s … 15 min géré dans le script) :
+ *   * * * * *  php /chemin/du/site/tools/cron.php --paiements
  *
  * Options : --dry-run (n'écrit rien) ; --paiements (uniquement le rattrapage des paiements).
  * Idempotent : peut être relancé sans doublons (clés uniques sur les notifications).
@@ -20,24 +20,29 @@ $seulementPaiements = in_array('--paiements', $argv ?? [], true);
 $log = function (string $m) { echo '[' . date('Y-m-d H:i:s') . '] ' . $m . "\n"; };
 $log('cron RCR ' . ($dry ? '(simulation)' : '') . ($seulementPaiements ? ' paiements' : ''));
 
-/* 1. Rattrapage des paiements restés ouverts (callback perdu, client parti trop tôt) — 50 par passage */
+/* 1. Rattrapage des paiements restés ouverts (callback perdu, client parti) — à lancer CHAQUE MINUTE.
+ *    Calendrier de re-vérification non bloquant : ≈10 s, 30 s, 1, 2, 5, 10, 15 min puis toutes les 15 min jusqu'à 3 jours.
+ *    Un paiement n'est JAMAIS passé en échec ici sans règle FlexPay (status "1" + 3 min, voir payment_verify_and_confirm). */
 try {
-    $q = $bdd->query("SELECT 'payment' AS t, id FROM payments
-                      WHERE status IN ('pending','processing','expired') AND order_number IS NOT NULL
-                        AND created_at < (NOW() - INTERVAL 2 MINUTE) AND created_at > (NOW() - INTERVAL 3 DAY)
+    $q = $bdd->query("SELECT 'payment' AS t, id, created_at, nb_verifs, TIMESTAMPDIFF(SECOND, COALESCE(derniere_verif, created_at), NOW()) AS depuis, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age
+                      FROM payments WHERE status IN ('pending','processing','expired') AND order_number IS NOT NULL AND created_at > (NOW() - INTERVAL 3 DAY)
                       UNION ALL
-                      SELECT 'don', id_don FROM dons
-                      WHERE status IN ('pending','processing','expired') AND order_number IS NOT NULL
-                        AND created_at < (NOW() - INTERVAL 2 MINUTE) AND created_at > (NOW() - INTERVAL 3 DAY)
-                      LIMIT 50");
+                      SELECT 'don', id_don, created_at, nb_verifs, TIMESTAMPDIFF(SECOND, COALESCE(derniere_verif, created_at), NOW()), TIMESTAMPDIFF(SECOND, created_at, NOW())
+                      FROM dons WHERE status IN ('pending','processing','expired') AND order_number IS NOT NULL AND created_at > (NOW() - INTERVAL 3 DAY)
+                      ORDER BY created_at LIMIT 100");
+    $paliers = [10, 30, 60, 120, 300, 600, 900]; // âge minimal (s) pour la N-ième vérification
     $n = 0; $payes = 0;
     foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $k = (int) $r['nb_verifs'];
+        $dueAge = $k < count($paliers) ? $paliers[$k] : 900;
+        $espacement = $k < count($paliers) ? 0 : 900; // après le calendrier : un passage toutes les 15 min
+        if ((int) $r['age'] < $dueAge || ($espacement > 0 && (int) $r['depuis'] < $espacement)) { continue; }
         $n++;
         if ($dry) { continue; }
         if (payment_flexpay_check($bdd, $r['t'] === 'don' ? 'don' : 'adhesion', (int) $r['id']) === 'paid') { $payes++; }
     }
     $log("paiements revérifiés : $n (confirmés : $payes)");
-} catch (Throwable $e) { $log('ERREUR rattrapage paiements : ' . $e->getMessage()); }
+} catch (Throwable $e) { $log('ERREUR rattrapage paiements : ' . $e->getMessage() . ' (migration phase7 appliquée ?)'); }
 
 if ($seulementPaiements) { exit(0); }
 

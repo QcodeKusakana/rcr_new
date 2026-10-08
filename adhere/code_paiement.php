@@ -71,6 +71,20 @@ if ($tarif && isset($_POST['btn_payer'])) {
         }
     }
 
+    // Jamais de second paiement si FlexPay a DÉJÀ encaissé une demande précédente de ce membre (même ancienne, même
+    // « expirée » côté site) : on la finalise d'abord ; la page de succès est affichée au lieu de redemander de l'argent.
+    if ($message === '') {
+        $ouverts = $bdd->prepare("SELECT id FROM payments WHERE id_ad = ? AND status IN ('pending','processing','expired','failed')
+                                  AND order_number IS NOT NULL AND type_transaction = ? AND created_at > (NOW() - INTERVAL 3 DAY) ORDER BY id DESC LIMIT 5");
+        $ouverts->execute([(int) $user['id_ad'], $typeTransaction]);
+        foreach ($ouverts->fetchAll(PDO::FETCH_COLUMN) as $oid) {
+            if (payment_flexpay_check($bdd, 'adhesion', (int) $oid) === 'paid') {
+                header('Location: success.php?id=' . (int) $oid . '&type=adhesion');
+                exit;
+            }
+        }
+    }
+
     if ($message === '') {
         $reference = payment_new_reference($typeTransaction === 'adhesion' ? 'A' : 'C');
         $ins = $bdd->prepare("INSERT INTO payments

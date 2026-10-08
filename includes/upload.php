@@ -5,6 +5,8 @@
  *  - l'extension est DÉDUITE du contenu réel, jamais du nom envoyé par le navigateur
  *  - le nom final est aléatoire : aucun texte saisi par l'utilisateur n'entre dans un chemin
  */
+require_once __DIR__ . '/helpers.php';
+
 if (!function_exists('upload_image_valide')) {
     /** @return string|null extension ('.jpg', '.png', '.webp') si l'image est valide, sinon null */
     function upload_image_valide($file, int $maxOctets = 5242880): ?string
@@ -16,7 +18,7 @@ if (!function_exists('upload_image_valide')) {
         if ($tmp === '' || !is_uploaded_file($tmp) || (int) ($file['size'] ?? 0) <= 0 || (int) $file['size'] > $maxOctets) {
             return null;
         }
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        $mime = mime_reel($tmp);
         $map  = ['image/jpeg' => '.jpg', 'image/png' => '.png', 'image/webp' => '.webp'];
         if (!isset($map[$mime]) || @getimagesize($tmp) === false) {
             return null;

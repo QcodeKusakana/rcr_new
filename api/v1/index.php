@@ -149,7 +149,7 @@ if ($methode === 'POST' && $r0 === 'adhesion') {
     $sauve = static function (array $f, array $types, string $dossier, string $prefixe) {
         if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) { throw new RuntimeException('Le téléversement a échoué.'); }
         if ($f['size'] > 10 * 1048576) { throw new RuntimeException('Fichier trop volumineux (10 Mo maximum).'); }
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+        $mime = mime_reel($f['tmp_name']);
         if (!isset($types[$mime])) { throw new RuntimeException('Type de fichier non autorisé.'); }
         if (strpos($mime, 'image/') === 0 && @getimagesize($f['tmp_name']) === false) { throw new RuntimeException('Image invalide.'); }
         if (!is_dir($dossier)) { mkdir($dossier, 0755, true); }
@@ -309,6 +309,58 @@ if ($methode === 'POST' && $r0 === 'auth' && $r1 === 'logout') {
 
 if ($methode === 'GET' && $r0 === 'me' && $r1 === '') {
     api_ok(['membre' => api_member_public($bdd, $m)]);
+}
+
+/* ---- profil complet (identité + circonscriptions + abonnement), mêmes informations que l'espace membre du site ---- */
+if ($methode === 'GET' && $r0 === 'me' && $r1 === 'profil') {
+    $s = $bdd->prepare('SELECT a.codes, a.nom, a.postnom, a.prenom, a.mail, a.telephone, a.datenaiss, a.civilite, a.sexe, a.nationalite, a.adresse, a.ville,
+                               a.dat_adhesion, a.date_echeance, a.statut, p.nom_p AS province, t.nom_tr AS territoire, sc.nom_sec AS secteur,
+                               q.designation AS categorie, g.nom_gd AS grade, g.prix AS prix_mensuel, c.nom_cot AS periode, c.mois
+                        FROM adhesion a
+                        LEFT JOIN provinces p ON p.id_p = a.province LEFT JOIN territoires t ON t.id_tr = a.territoire
+                        LEFT JOIN secteurs sc ON sc.id_sec = a.secteur LEFT JOIN qualites q ON q.id_qt = a.id_qt
+                        LEFT JOIN grades g ON g.id_gd = a.grade LEFT JOIN cotisation c ON c.id_cot = a.reglement
+                        WHERE a.id_ad = ?');
+    $s->execute([$idAd]);
+    $r = $s->fetch(PDO::FETCH_ASSOC) ?: [];
+    $mois = max(1, (int) ($r['mois'] ?? 1));
+    $prix = (float) ($r['prix_mensuel'] ?? 0);
+    api_ok(['profil' => [
+        'code' => $r['codes'] ?? '', 'nom' => $r['nom'] ?? '', 'postnom' => $r['postnom'] ?? '', 'prenom' => $r['prenom'] ?? '',
+        'email' => $r['mail'] ?? '', 'telephone' => $r['telephone'] ?? '', 'date_naissance' => $r['datenaiss'] ?? null,
+        'civilite' => $r['civilite'] ?? '', 'sexe' => $r['sexe'] ?? '', 'nationalite' => $r['nationalite'] ?? '',
+        'adresse' => $r['adresse'] ?? '', 'ville' => $r['ville'] ?? '', 'date_adhesion' => $r['dat_adhesion'] ?? null,
+        'province' => $r['province'] ?? '', 'territoire' => $r['territoire'] ?? '', 'secteur' => $r['secteur'] ?? '',
+        'categorie' => $r['categorie'] ?? '', 'grade' => $r['grade'] ?? '', 'periode' => $r['periode'] ?? '',
+        'prix_mensuel' => $prix, 'mois' => $mois, 'total_periode' => round($prix * $mois, 2), 'devise' => 'USD',
+    ]]);
+}
+
+/* ---- parrainage : lien personnel, filleuls, commission estimée (lecture seule, comme sur le site) ---- */
+if ($methode === 'GET' && $r0 === 'me' && $r1 === 'parrainage') {
+    require_once __DIR__ . '/../../config/commission.php';
+    $taux = (float) TAUX_COMMISSION_PARRAINAGE;
+    // parner.id_exp = le NOUVEAU membre, parner.id_dest = le PARRAIN (sémantique réelle, voir functions/esp_membre.funct.php)
+    $s = $bdd->prepare("SELECT a.id_ad, a.nom, a.postnom, a.prenom, a.codes, a.dat_adhesion, g.nom_gd,
+                               COALESCE(SUM(CASE WHEN pay.status = 'paid' THEN pay.montant ELSE 0 END), 0) AS total_paye,
+                               COUNT(CASE WHEN pay.status = 'paid' THEN pay.id END) AS nb_paiements
+                        FROM adhesion a INNER JOIN parner pr ON a.id_ad = pr.id_exp
+                        LEFT JOIN grades g ON a.grade = g.id_gd LEFT JOIN payments pay ON pay.id_ad = a.id_ad
+                        WHERE pr.id_dest = ?
+                        GROUP BY a.id_ad, a.nom, a.postnom, a.prenom, a.codes, a.dat_adhesion, g.nom_gd
+                        ORDER BY a.dat_adhesion DESC LIMIT 200");
+    $s->execute([$idAd]);
+    $total = 0.0;
+    $items = array_map(function ($f) use ($taux, &$total) {
+        $com = round((float) $f['total_paye'] * $taux / 100, 2);
+        $total += $com;
+        return ['nom' => trim($f['prenom'] . ' ' . $f['nom'] . ' ' . $f['postnom']), 'code' => $f['codes'], 'grade' => $f['nom_gd'],
+                'date_adhesion' => $f['dat_adhesion'], 'nb_paiements' => (int) $f['nb_paiements'],
+                'total_paye' => (float) $f['total_paye'], 'commission' => $com];
+    }, $s->fetchAll(PDO::FETCH_ASSOC));
+    $lien = api_base_url() . '/adhere/adhesion.php?idmbre=' . $idAd;
+    api_ok(['lien' => $lien, 'message' => "Rejoignez le RCR (Rassemblement des Chrétiens Républicains) ! Adhérez via mon lien de parrainage : " . $lien,
+            'taux' => $taux, 'nombre_filleuls' => count($items), 'commission_totale' => round($total, 2), 'devise' => 'USD', 'filleuls' => $items]);
 }
 
 if ($methode === 'POST' && $r0 === 'me' && $r1 === 'mot-de-passe') {
@@ -472,6 +524,14 @@ if ($methode === 'GET' && $r0 === 'dons' && ctype_digit($r1) && $r2 === 'recu') 
 if ($methode === 'GET' && $r0 === 'me' && $r1 === 'carte') {
     $_SESSION = ['id_ad' => $idAd];
     require __DIR__ . '/../../member/carte.php';
+    exit;
+}
+
+/* ---- fiche d'adhésion (PDF) : le script contrôle lui-même que le membre en est propriétaire ---- */
+if ($methode === 'GET' && $r0 === 'me' && $r1 === 'fiche') {
+    $_SESSION = ['id_ad' => $idAd]; $_GET['cod'] = $idAd;
+    chdir(__DIR__ . '/../../admin/pages/print'); // le script utilise des chemins relatifs
+    require __DIR__ . '/../../admin/pages/print/print_adherer.php';
     exit;
 }
 

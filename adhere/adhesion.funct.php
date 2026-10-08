@@ -49,7 +49,7 @@ if (!function_exists('adhesion_save_upload')) {
         if ($file['size'] > $maxBytes) {
             throw new RuntimeException('Fichier trop volumineux (' . (int) ($maxBytes / 1048576) . ' Mo maximum).');
         }
-        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+        $mime = mime_reel($file['tmp_name']);
         if (!isset($mimeToExt[$mime])) {
             throw new RuntimeException('Type de fichier non autorisé.');
         }

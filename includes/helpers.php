@@ -30,3 +30,28 @@ function e(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8', false);
 }
+
+if (!function_exists('mime_reel')) {
+    /**
+     * Type MIME RÉEL d'un fichier (jamais celui annoncé par le navigateur). Fonctionne même si l'extension PHP
+     * « fileinfo » est absente de l'hébergement : repli sur mime_content_type(), puis sur la lecture de l'en-tête
+     * (images via getimagesize(), PDF via la signature « %PDF- »). Retourne application/octet-stream si inconnu.
+     */
+    function mime_reel(string $chemin): string
+    {
+        if (class_exists('finfo')) {
+            $m = (new finfo(FILEINFO_MIME_TYPE))->file($chemin);
+            if (is_string($m) && $m !== '') { return $m; }
+        }
+        if (function_exists('mime_content_type')) {
+            $m = @mime_content_type($chemin);
+            if (is_string($m) && $m !== '') { return $m; }
+        }
+        $info = @getimagesize($chemin);
+        if (is_array($info) && !empty($info['mime'])) { return (string) $info['mime']; }
+        $h = @fopen($chemin, 'rb');
+        $debut = $h ? (string) fread($h, 5) : '';
+        if ($h) { fclose($h); }
+        return $debut === '%PDF-' ? 'application/pdf' : 'application/octet-stream';
+    }
+}

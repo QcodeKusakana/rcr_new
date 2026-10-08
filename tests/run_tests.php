@@ -256,6 +256,30 @@ if (!$withDb) {
         payment_apply_status($bdd, $trouver($ref3b), 'cancelled', false);
         eq('annulé sans confirmation FlexPay : reste cancelled', 'cancelled', $statut($id3b));
 
+        titre('FlexPay réel : transaction.reference = orderNumber (cause du bug « débité mais jamais validé »)');
+        [$idR, $refR] = $nouveau();
+        $ordR = (string) $bdd->query("SELECT order_number FROM payments WHERE id = $idR")->fetchColumn();
+        $GLOBALS['fp_stub'] = ['found' => true, 'status' => '4', 'reference' => $ordR, 'order' => $ordR, 'amount' => 20.0, 'currency' => 'USD', 'http' => 200, 'message' => '', 'error' => ''];
+        eq('statut inconnu « 4 » : reste en attente', null, payment_verify_and_confirm($bdd, $trouver($refR)));
+        eq('… sans passer en échec', 'processing', $statut($idR));
+        $GLOBALS['fp_stub'] = ['found' => true, 'status' => '0', 'reference' => $ordR, 'order' => $ordR, 'amount' => 20.0, 'currency' => 'USD', 'http' => 200, 'message' => '', 'error' => ''];
+        eq('succès avec reference = orderNumber : paid', 'paid', payment_verify_and_confirm($bdd, $trouver($refR)));
+        eq('… statut paid', 'paid', $statut($idR));
+        $GLOBALS['fp_stub'] = ['found' => true, 'status' => '0', 'reference' => $ordR, 'order' => 'AUTREORDRE123456', 'amount' => 20.0, 'currency' => 'USD'];
+        [$idS, $refS] = $nouveau();
+        eq('orderNumber de la réponse différent : refusé', null, payment_verify_and_confirm($bdd, $trouver($refS)));
+        $GLOBALS['fp_stub'] = ['found' => false, 'status' => null, 'reference' => null, 'amount' => null, 'currency' => null];
+        eq('transaction inconnue de FlexPay : inchangé', null, payment_verify_and_confirm($bdd, $trouver($refS)));
+        $GLOBALS['fp_stub'] = ['found' => true, 'status' => '0', 'reference' => $refS, 'amount' => 20.0, 'currency' => 'USD'];
+        $avant = (string) $bdd->query("SELECT date_echeance FROM adhesion WHERE id_ad = $idAd")->fetchColumn();
+        payment_verify_and_confirm($bdd, $trouver($refS));
+        $apres = (string) $bdd->query("SELECT date_echeance FROM adhesion WHERE id_ad = $idAd")->fetchColumn();
+        t('premier finalize : échéance prolongée', $apres > $avant);
+        eq('finalize rejoué (callback en double) : false', false, payment_finalize($bdd, $trouver($refS)));
+        eq('… échéance inchangée', $apres, (string) $bdd->query("SELECT date_echeance FROM adhesion WHERE id_ad = $idAd")->fetchColumn());
+        $nbR = (int) $bdd->query("SELECT COUNT(*) FROM payment_logs WHERE reference = " . $bdd->quote($refS) . " AND evenement = 'status_change' AND statut_apres = 'paid'")->fetchColumn();
+        eq('une seule transition paid journalisée', 1, $nbR);
+
         [$id4, $ref4] = $nouveau();
         $GLOBALS['fp_stub'] = ['found' => true, 'status' => '0', 'reference' => $ref4, 'amount' => 5.0, 'currency' => 'USD'];
         eq('payment_mark_status_by_reference(paid) passe par la vérification', null, payment_mark_status_by_reference($bdd, $ref4, 'paid'));

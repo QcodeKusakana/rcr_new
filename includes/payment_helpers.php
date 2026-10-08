@@ -91,6 +91,25 @@ if (!function_exists('payment_find_by_reference')) {
     }
 }
 
+if (!function_exists('payment_find_by_order')) {
+    /** Retrouve une transaction par son numéro de commande FlexPay (repli du callback si la référence est inconnue). */
+    function payment_find_by_order(PDO $bdd, string $order): ?array
+    {
+        if (!preg_match('/^[A-Za-z0-9]{10,60}$/', $order)) {
+            return null;
+        }
+        $s = $bdd->prepare('SELECT reference FROM payments WHERE order_number = ? LIMIT 1');
+        $s->execute([$order]);
+        $ref = $s->fetchColumn();
+        if (!$ref) {
+            $s = $bdd->prepare('SELECT reference FROM dons WHERE order_number = ? LIMIT 1');
+            $s->execute([$order]);
+            $ref = $s->fetchColumn();
+        }
+        return $ref ? payment_find_by_reference($bdd, (string) $ref) : null;
+    }
+}
+
 if (!function_exists('payment_set_order_number')) {
     /** Enregistre le numéro de commande FlexPay (transaction_id conservé pour compatibilité). */
     function payment_set_order_number(PDO $bdd, string $type, int $id, string $orderNumber, string $newStatus = 'processing'): void
@@ -136,24 +155,78 @@ if (!function_exists('payment_activate_membership')) {
         $debut = ($ech && new DateTimeImmutable($ech) > $today) ? new DateTimeImmutable($ech) : $today; // renouvellement anticipé : on prolonge
         $fin   = $debut->modify("+{$mois} months");
 
-        $bdd->beginTransaction();
+        $own = !$bdd->inTransaction(); // appelée depuis payment_finalize (transaction déjà ouverte) ou seule
+        if ($own) { $bdd->beginTransaction(); }
         try {
             $bdd->prepare('UPDATE payments SET periode_debut = ?, periode_fin = ? WHERE id = ? AND periode_fin IS NULL')
                 ->execute([$debut->format('Y-m-d'), $fin->format('Y-m-d'), $paymentId]);
             $bdd->prepare("UPDATE adhesion SET statut = 'actif', date_echeance = ?, reglement = ? WHERE id_ad = ?")
                 ->execute([$fin->format('Y-m-d'), (int) $p['id_cot'], (int) $p['id_ad']]);
+            if ($own) { $bdd->commit(); }
+        } catch (Throwable $e) {
+            if ($own && $bdd->inTransaction()) { $bdd->rollBack(); }
+            error_log('[payment_activate_membership] ' . $e->getMessage());
+            if (!$own) { throw $e; } // la transaction englobante (finalize) doit être annulée : jamais « payé » sans membre activé
+        }
+    }
+}
+
+if (!function_exists('payment_finalize')) {
+    /**
+     * finalizePayment — IDEMPOTENT. Seule porte d'entrée vers le statut « paid ».
+     * Dans UNE transaction MySQL, ligne verrouillée (SELECT … FOR UPDATE) :
+     *   statut -> paid, membre activé + période calculée (adhésion/cotisation) ou échéance de don.
+     * Deux callbacks / pollings simultanés : le second attend le verrou, voit « paid » et ne fait rien.
+     * Toute erreur annule tout (jamais « paid » sans adhésion validée). Notifications APRÈS commit.
+     * @return bool true si CET appel a finalisé le paiement, false s'il l'était déjà ou en cas d'échec.
+     */
+    function payment_finalize(PDO $bdd, array $found): bool
+    {
+        $table = $found['table'];
+        $pk    = $table === 'dons' ? 'id_don' : 'id';
+        $id    = (int) $found['row']['id'];
+        $from  = '';
+        try {
+            $bdd->beginTransaction();
+            $q = $bdd->prepare("SELECT status FROM `{$table}` WHERE `{$pk}` = ? FOR UPDATE");
+            $q->execute([$id]);
+            $from = (string) $q->fetchColumn();
+            if ($from === '' || $from === 'paid') {
+                $bdd->rollBack();
+                return false;
+            }
+            // Un paiement confirmé par FlexPay l'emporte sur tout statut non payé (y compris failed/cancelled/expired).
+            $bdd->prepare("UPDATE `{$table}` SET status = 'paid', verifie_le = NOW() WHERE `{$pk}` = ?")->execute([$id]);
+            if ($table === 'payments') {
+                $bdd->prepare('UPDATE payments SET trans_keys = 1 WHERE id = ? AND trans_keys = 0')->execute([$id]);
+                payment_activate_membership($bdd, $id); // lève en cas d'erreur -> rollback ci-dessous
+            }
             $bdd->commit();
         } catch (Throwable $e) {
-            $bdd->rollBack();
-            error_log('[payment_activate_membership] ' . $e->getMessage());
+            if ($bdd->inTransaction()) { $bdd->rollBack(); }
+            error_log('[payment_finalize] ' . $e->getMessage());
+            payment_log($bdd, $found['row']['type_transaction'] ?? 'don', $id, (string) $found['row']['reference'], 'finalize_error', $from ?: null, null, $e->getMessage());
+            return false;
         }
+        payment_log($bdd, $found['row']['type_transaction'] ?? 'don', $id, (string) $found['row']['reference'], 'status_change', $from, 'paid', ['verified' => true]);
+        try {
+            if ($table === 'payments' && !empty($found['row']['id_ad'])) {
+                $ev = (($found['row']['type_transaction'] ?? 'adhesion') === 'cotisation') ? 'paiement_confirme' : 'adhesion_confirmee';
+                notify_member($bdd, (int) $found['row']['id_ad'], $ev, ['reference' => $found['row']['reference'], 'montant' => $found['row']['montant'], 'devise' => $found['row']['devise']], 'pay:' . $found['row']['reference']);
+            }
+            if ($table === 'dons') {
+                payment_don_planifier_suite($bdd, $id);
+            }
+        } catch (Throwable $e) {
+            error_log('[payment_finalize/notify] ' . $e->getMessage()); // le paiement reste valide
+        }
+        return true;
     }
 }
 
 if (!function_exists('payment_apply_status')) {
     /**
-     * Applique un statut final. Passage à 'paid' autorisé depuis tout statut non-cancelled
-     * (y compris 'failed'/'expired') UNIQUEMENT si $verified = true (confirmé par FlexPay).
+     * Applique un statut. 'paid' n'est accepté que si $verified = true (confirmé par FlexPay) et passe par payment_finalize().
      * Retourne true si une ligne a changé.
      */
     function payment_apply_status(PDO $bdd, array $found, string $newStatus, bool $verified): bool
@@ -164,35 +237,74 @@ if (!function_exists('payment_apply_status')) {
         $from  = $found['row']['status'];
 
         if ($newStatus === 'paid') {
-            if (!$verified) {
-                return false;
-            }
-            // Une confirmation FlexPay vérifiée l'emporte sur tout statut non payé (y compris 'cancelled' :
-            // l'argent a réellement été encaissé, il doit être enregistré et le membre activé).
-            $allowed = ['pending', 'processing', 'expired', 'failed', 'cancelled'];
-        } elseif ($newStatus === 'failed') {
-            $allowed = ['pending', 'processing', 'expired'];
-        } else {
-            $allowed = PAYMENT_OPEN_STATUSES;
+            return $verified ? payment_finalize($bdd, $found) : false;
         }
-
+        $allowed = $newStatus === 'failed' ? ['pending', 'processing', 'expired'] : PAYMENT_OPEN_STATUSES;
         $changed = payment_transition_status($bdd, $table, $pk, $id, $allowed, $newStatus);
         if ($changed) {
             $bdd->prepare("UPDATE `{$table}` SET verifie_le = NOW() WHERE `{$pk}` = ?")->execute([$id]);
             payment_log($bdd, $found['row']['type_transaction'] ?? 'don', $id, $found['row']['reference'], 'status_change', $from, $newStatus, ['verified' => $verified]);
-            if ($newStatus === 'paid' && $table === 'payments') {
-                payment_sync_trans_keys($bdd, $id);
-                payment_activate_membership($bdd, $id);
-                if (!empty($found['row']['id_ad'])) {
-                    $ev = (($found['row']['type_transaction'] ?? 'adhesion') === 'cotisation') ? 'paiement_confirme' : 'adhesion_confirmee';
-                    notify_member($bdd, (int) $found['row']['id_ad'], $ev, ['reference' => $found['row']['reference'], 'montant' => $found['row']['montant'], 'devise' => $found['row']['devise']], 'pay:' . $found['row']['reference']);
-                }
-            }
-            if ($newStatus === 'paid' && $table === 'dons') {
-                payment_don_planifier_suite($bdd, $id);
-            }
         }
         return $changed;
+    }
+}
+
+if (!function_exists('payment_track')) {
+    /** Suivi de diagnostic (dernière vérif, statut FlexPay brut, nb de vérifs, dernier callback, dernière erreur). Tolère l'absence des colonnes (migration non passée). */
+    function payment_track(PDO $bdd, array $found, array $set): void
+    {
+        $t  = $found['table'];
+        $pk = $t === 'dons' ? 'id_don' : 'id';
+        $cols = [];
+        $par  = [];
+        if (isset($set['check'])) {
+            $cols[] = 'derniere_verif = NOW()'; $cols[] = 'nb_verifs = nb_verifs + 1';
+            $cols[] = 'flexpay_status = ?'; $par[] = $set['flexpay_status'] === null ? null : mb_substr((string) $set['flexpay_status'], 0, 20);
+            $cols[] = 'derniere_erreur = ?'; $par[] = ($set['error'] ?? '') === '' ? null : mb_substr((string) $set['error'], 0, 250);
+        }
+        if (isset($set['callback'])) { $cols[] = 'dernier_callback = NOW()'; }
+        if (!$cols) { return; }
+        try {
+            $par[] = (int) $found['row']['id'];
+            $bdd->prepare("UPDATE `{$t}` SET " . implode(', ', $cols) . " WHERE `{$pk}` = ?")->execute($par);
+        } catch (Throwable $e) {
+            error_log('[payment_track] ' . $e->getMessage() . ' (migration phase7 appliquée ?)');
+        }
+    }
+}
+
+if (!function_exists('verifyFlexPayTransaction')) {
+    /**
+     * Vérification serveur → serveur d'une transaction (jeton Bearer côté serveur uniquement).
+     * Ne modifie AUCUN statut. state :
+     *   PAID      status FlexPay "0"
+     *   FAILED    status FlexPay "1" (n'a pas abouti — l'appelant applique un délai de grâce)
+     *   PENDING   autre valeur (ex. "4" observé) : non concluant, on continue d'attendre
+     *   NOT_FOUND FlexPay ne connaît pas ce numéro de commande
+     *   ERROR     réseau / HTTP / JSON illisible / non configuré : on ne décide RIEN
+     * @return array{state:string, flexpay_status:?string, order:?string, reference:?string, amount:?float, currency:?string, http:int, message:string, error:string}
+     */
+    function verifyFlexPayTransaction(string $orderNumber): array
+    {
+        $out = ['state' => 'ERROR', 'flexpay_status' => null, 'order' => null, 'reference' => null, 'amount' => null, 'currency' => null, 'http' => 0, 'message' => '', 'error' => ''];
+        try {
+            $c = flexpay_check_order($orderNumber);
+        } catch (Throwable $e) {
+            $out['error'] = 'exception: ' . $e->getMessage();
+            return $out;
+        }
+        if ($c === null) {
+            $out['error'] = 'FlexPay injoignable ou réponse non JSON';
+            return $out;
+        }
+        $out = array_merge($out, ['order' => $c['order'] ?? null, 'reference' => $c['reference'] ?? null, 'amount' => $c['amount'] ?? null, 'currency' => $c['currency'] ?? null, 'http' => (int) ($c['http'] ?? 0), 'message' => (string) ($c['message'] ?? ''), 'flexpay_status' => $c['status'] ?? null]);
+        if (empty($c['found'])) {
+            $out['state'] = 'NOT_FOUND';
+            $out['error'] = (string) ($c['error'] ?? '');
+            return $out;
+        }
+        $out['state'] = ($c['status'] ?? null) === '0' ? 'PAID' : (($c['status'] ?? null) === '1' ? 'FAILED' : 'PENDING');
+        return $out;
     }
 }
 
@@ -205,38 +317,46 @@ if (!function_exists('payment_verify_and_confirm')) {
     function payment_verify_and_confirm(PDO $bdd, array $found): ?string
     {
         $row   = $found['row'];
+        $type  = $row['type_transaction'] ?? 'don';
         $order = (string) ($row['order_number'] ?: $row['transaction_id']);
         if ($order === '') {
             return null;
         }
-        $chk = flexpay_check_order($order);
-        if ($chk === null || !$chk['found']) {
-            payment_log($bdd, $row['type_transaction'] ?? 'don', (int) $row['id'], $row['reference'], 'check_unavailable', $row['status'], null, $order);
+        $v = verifyFlexPayTransaction($order);
+        payment_track($bdd, $found, ['check' => true, 'flexpay_status' => $v['flexpay_status'], 'error' => $v['state'] === 'ERROR' ? $v['error'] : '']);
+        payment_log($bdd, $type, (int) $row['id'], $row['reference'], 'check', $row['status'], null, ['state' => $v['state'], 'flexpay_status' => $v['flexpay_status'], 'http' => $v['http'], 'error' => $v['error']]);
+
+        if ($v['state'] === 'ERROR' || $v['state'] === 'NOT_FOUND') {
             return null;
         }
-        if ($chk['reference'] !== null && $chk['reference'] !== $row['reference']) {
-            payment_log($bdd, $row['type_transaction'] ?? 'don', (int) $row['id'], $row['reference'], 'check_reference_mismatch', $row['status'], null, $chk);
+        // Cohérence : FlexPay renvoie dans transaction.reference le numéro de commande (et non la référence RCR).
+        // On accepte les deux, on refuse tout ce qui ne correspond à NI l'un NI l'autre.
+        if ($v['reference'] !== null && $v['reference'] !== $row['reference'] && $v['reference'] !== $order) {
+            payment_log($bdd, $type, (int) $row['id'], $row['reference'], 'check_reference_mismatch', $row['status'], null, $v);
             return null;
         }
-        if ($chk['status'] === '0') {
-            $okAmount   = $chk['amount'] !== null && abs($chk['amount'] - (float) $row['montant']) <= 0.01;
-            $okCurrency = $chk['currency'] === null || $chk['currency'] === strtoupper((string) $row['devise']);
+        if ($v['order'] !== null && $v['order'] !== $order) {
+            payment_log($bdd, $type, (int) $row['id'], $row['reference'], 'check_order_mismatch', $row['status'], null, $v);
+            return null;
+        }
+        if ($v['state'] === 'PAID') {
+            $okAmount   = $v['amount'] !== null && abs($v['amount'] - (float) $row['montant']) <= 0.01;
+            $okCurrency = $v['currency'] === null || $v['currency'] === strtoupper((string) $row['devise']);
             if (!$okAmount || !$okCurrency) {
-                payment_log($bdd, $row['type_transaction'] ?? 'don', (int) $row['id'], $row['reference'], 'check_amount_mismatch', $row['status'], null, ['attendu' => $row['montant'] . ' ' . $row['devise'], 'flexpay' => $chk]);
-                return null;
+                payment_log($bdd, $type, (int) $row['id'], $row['reference'], 'check_amount_mismatch', $row['status'], null, ['attendu' => $row['montant'] . ' ' . $row['devise'], 'flexpay' => $v]);
+                return null; // argent encaissé mais montant différent : décision humaine (page admin), jamais auto-validé
             }
             payment_apply_status($bdd, $found, 'paid', true);
             return 'paid';
         }
-        if ($chk['status'] === '1') {
+        if ($v['state'] === 'FAILED') {
             // "1" = pas abouti. On n'échoue qu'après 3 min (le client peut encore valider le push).
-            // Âge calculé PAR MySQL (même horloge que created_at) : insensible à un décalage de fuseau PHP/MySQL.
+            // Âge calculé PAR MySQL (même horloge que created_at).
             $t = $found['table'];
             $pk = $t === 'dons' ? 'id_don' : 'id';
             $a = $bdd->prepare("SELECT TIMESTAMPDIFF(SECOND, created_at, NOW()) FROM `{$t}` WHERE `{$pk}` = ?");
             $a->execute([(int) $row['id']]);
-            $age = (int) $a->fetchColumn();
-            if ($age >= 180) {
+            if ((int) $a->fetchColumn() >= 180) {
                 payment_apply_status($bdd, $found, 'failed', true);
                 return 'failed';
             }

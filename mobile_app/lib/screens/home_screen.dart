@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        bottom: const PreferredSize(preferredSize: Size.fromHeight(3), child: ColoredBox(color: Rcr.gold2, child: SizedBox(height: 3, width: double.infinity))),
         title: Row(children: [
           Image.asset('assets/logo.png', height: 30),
           const SizedBox(width: 10),

@@ -116,3 +116,48 @@ class BusyButton extends StatelessWidget {
               ]),
       );
 }
+
+/// Ligne « libellé / valeur » alignée, utilisée dans les fiches (identité, abonnement…).
+class InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool fort;
+  const InfoRow(this.label, this.value, {super.key, this.fort = false});
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(flex: 4, child: Text(label, style: const TextStyle(color: Rcr.soft, fontSize: 13.5))),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 6,
+            child: Text(value.isEmpty ? '—' : value,
+                textAlign: TextAlign.right, style: TextStyle(fontWeight: fort ? FontWeight.w800 : FontWeight.w600, fontSize: 14.5, color: Rcr.ink)),
+          ),
+        ]),
+      );
+}
+
+/// Carte à en-tête (icône + titre) : même principe que les panneaux de l'espace membre du site.
+class PanneauCarte extends StatelessWidget {
+  final IconData icone;
+  final String titre;
+  final List<Widget> enfants;
+  const PanneauCarte({super.key, required this.icone, required this.titre, required this.enfants});
+  @override
+  Widget build(BuildContext context) => Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(color: Rcr.ink, border: Border(bottom: BorderSide(color: Rcr.gold, width: 2))),
+            child: Row(children: [
+              Icon(icone, color: Rcr.gold2, size: 20),
+              const SizedBox(width: 10),
+              Text(titre, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+            ]),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: enfants)),
+        ]),
+      );
+}

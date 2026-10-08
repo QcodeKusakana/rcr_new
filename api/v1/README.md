@@ -14,6 +14,9 @@ Réponses : `{"ok":true,...}` ou `{"ok":false,"code":"...","message":"..."}` (le
 | GET | `/me` | ✔ | profil, statut, échéance, tarif de renouvellement |
 | POST | `/me/mot-de-passe` `{actuel, nouveau}` | ✔ | change le mot de passe (déconnecte les autres appareils) |
 | GET | `/me/carte` | ✔ | carte de membre PDF (cotisation à jour) |
+| GET | `/me/profil` | ✔ | identité, circonscriptions et abonnement (comme l’espace membre du site) |
+| GET | `/me/parrainage` | ✔ | lien de parrainage, filleuls, commission estimée (lecture seule) |
+| GET | `/me/fiche` | ✔ | fiche d’adhésion PDF |
 | POST | `/paiements` `{canal, telephone, id_periode}` | ✔ | adhésion (1er paiement) ou renouvellement ; carte → `redirect_url` |
 | GET | `/paiements` | ✔ | historique |
 | GET/POST | `/paiements/{id}/statut` · `/expirer` · GET `/recu` | ✔ | suivi (vérification FlexPay serveur), reçu PDF |

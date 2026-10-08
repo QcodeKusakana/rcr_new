@@ -61,6 +61,7 @@ class AccueilTab extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Ma cotisation', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 10),
+              if (!premier) _validite(m),
               if (premier) ...[
                 const Text("Votre adhésion n'est pas encore validée : elle l'est automatiquement dès que votre paiement est reçu."),
               ] else ...[
@@ -98,7 +99,41 @@ class AccueilTab extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 10),
-        TextButton(onPressed: () => onAller(1), child: const Text('Voir mon historique de paiements')),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => onAller(1),
+              icon: const Icon(Icons.receipt_long_outlined), label: const Text('Mes paiements'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => onAller(3),
+              icon: const Icon(Icons.groups_outlined), label: const Text('Parrainage'),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  /// Barre de validité : part de la période de cotisation restante (bornée à 30 jours pour rester lisible).
+  Widget _validite(Membre m) {
+    final j = m.joursRestants ?? 0;
+    final ok = m.aJour;
+    final couleur = !ok ? Rcr.red : (j <= 30 ? Rcr.gold : Rcr.green);
+    final valeur = ok ? (j >= 30 ? 1.0 : (j / 30).clamp(0.05, 1.0)) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(ok ? (j <= 30 ? 'À renouveler bientôt' : 'Cotisation à jour') : 'Cotisation expirée',
+            style: TextStyle(color: couleur, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(value: valeur, minHeight: 8, color: couleur, backgroundColor: couleur.withValues(alpha: 0.15)),
+        ),
       ]),
     );
   }

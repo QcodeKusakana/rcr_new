@@ -39,6 +39,9 @@ try {
 
     $reference = substr(trim((string) $in['reference']), 0, 100);
     $found = payment_find_by_reference($bdd, $reference);
+    if (!$found && !empty($in['orderNumber'])) {
+        $found = payment_find_by_order($bdd, (string) $in['orderNumber']); // repli : référence altérée côté FlexPay
+    }
 
     if (!$found) {
         payment_log($bdd, 'adhesion', null, $reference, 'callback_unknown_reference', null, null, $raw);
@@ -48,6 +51,8 @@ try {
     }
 
     payment_log($bdd, $found['row']['type_transaction'] ?? 'don', (int) $found['row']['id'], $reference, 'callback_received', $found['row']['status'], null, $raw);
+
+    payment_track($bdd, $found, ['callback' => true]);
 
     // Idempotence : une transaction déjà payée n'est jamais retraitée (FlexPay peut renvoyer le même callback).
     if ($found['row']['status'] === 'paid') {
@@ -75,8 +80,9 @@ try {
 
     $result = payment_verify_and_confirm($bdd, $found);
 
-    // 200 : reçu (FlexPay ne relance pas). Si la vérification est impossible, le polling
-    // de adhere/check_payment.php et la tâche de rattrapage reprendront la main.
+    // 200 : reçu (FlexPay ne relance pas). Le code du callback n'est qu'un déclencheur : la décision vient
+    // exclusivement du check serveur. Si celui-ci est impossible, le polling de adhere/check_payment.php et
+    // la tâche planifiée (tools/cron.php --paiements) reprennent la main.
     echo json_encode(['received' => true, 'result' => $result ?? 'unchanged']);
 } catch (Throwable $e) {
     error_log('[flexpay_callback] ' . $e->getMessage());

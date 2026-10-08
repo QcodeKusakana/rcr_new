@@ -2,6 +2,7 @@
 config/database.php
 config/flexpay.php
 config/mail.php
+config/debug_ips.php
 
 # Données générées
 storage/logs/*

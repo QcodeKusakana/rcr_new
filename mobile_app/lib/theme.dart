@@ -19,7 +19,13 @@ class Rcr {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: const Color(0xFFF7F3EA),
-      appBarTheme: const AppBarTheme(backgroundColor: ink, foregroundColor: Colors.white, elevation: 0, centerTitle: false),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: ink, foregroundColor: Colors.white, elevation: 0, centerTitle: false,
+        titleTextStyle: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.2),
+      ),
+      snackBarTheme: SnackBarThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+      dividerTheme: const DividerThemeData(color: line, thickness: 0.8),
+      listTileTheme: const ListTileThemeData(iconColor: ink),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,

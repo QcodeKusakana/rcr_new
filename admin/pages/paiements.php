@@ -105,7 +105,7 @@ $peutAgir = has_permission($bdd, 'paiements.valider');
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between flex-wrap gap-2">
-            <span class="fw-semibold"><?= (int) $total ?> transaction(s)</span>
+            <span class="fw-semibold"><?= (int) $total ?> transaction(s) <a class="btn btn-sm btn-outline-dark ms-2" href="?pages=paiement_diagnostic"><i class="bi bi-activity"></i> Diagnostic FlexPay</a></span>
             <span class="text-muted small">Total payé (USD) sur ce filtre : <strong><?= e(number_format((float) $somme, 2, ',', ' ')) ?></strong></span>
         </div>
         <div class="table-responsive">
@@ -116,7 +116,7 @@ $peutAgir = has_permission($bdd, 'paiements.valider');
                     <tr>
                         <td class="text-nowrap"><?= e(date('d/m/Y H:i', strtotime((string) $r['created_at']))) ?></td>
                         <td><?= e(ucfirst((string) $r['type'])) ?></td>
-                        <td><small class="text-muted"><?= e((string) $r['reference']) ?></small></td>
+                        <td><a class="small text-muted" href="?pages=paiement_diagnostic&amp;q=<?= urlencode((string) $r['reference']) ?>"><?= e((string) $r['reference']) ?></a></td>
                         <td><?= e((string) ($r['personne'] ?: '—')) ?></td>
                         <td class="text-end text-nowrap"><?= e(number_format((float) $r['montant'], 2, ',', ' ')) ?> <?= e((string) $r['devise']) ?></td>
                         <td><?= $r['canal'] === 'carte' ? 'Carte' : 'Mobile Money' ?></td>

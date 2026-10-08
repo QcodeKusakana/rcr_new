@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'state/session.dart';
 import 'theme.dart';
 
@@ -35,16 +36,34 @@ class RcrApp extends StatelessWidget {
   }
 }
 
-/// Aiguillage selon l'état de la session.
-class _Racine extends StatelessWidget {
+/// Aiguillage selon l'état de la session. L'écran de chargement reste visible au moins 1,8 s
+/// (lecture du jeton, chargement du profil) pour éviter un clignotement.
+class _Racine extends StatefulWidget {
   const _Racine();
+  @override
+  State<_Racine> createState() => _RacineState();
+}
+
+class _RacineState extends State<_Racine> {
+  bool _minimumEcoule = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) setState(() => _minimumEcoule = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<Session>();
+    if (s.status == AuthStatus.loading || !_minimumEcoule) {
+      return const SplashScreen();
+    }
     switch (s.status) {
       case AuthStatus.loading:
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const SplashScreen();
       case AuthStatus.loggedIn:
         return const HomeScreen();
       case AuthStatus.offline:

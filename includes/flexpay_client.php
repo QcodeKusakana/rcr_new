@@ -168,28 +168,37 @@ if (!function_exists('flexpay_request_card')) {
 if (!function_exists('flexpay_check_order')) {
     /**
      * Vérification serveur d'une transaction (GET .../check/{orderNumber}).
-     * status "0" = réussie, "1" = n'a pas abouti. null si FlexPay est injoignable.
-     * @return array{found:bool, status:?string, reference:?string, amount:?float, currency:?string}|null
+     *
+     * IMPORTANT (constaté en conditions réelles) : dans la réponse du check, `transaction.reference` contient
+     * le numéro de commande FlexPay (orderNumber) et NON la référence RCR envoyée à l'init. Les deux valeurs
+     * sont donc exposées séparément ('reference' brut + 'order') et c'est l'appelant qui décide de ce qui est cohérent.
+     * status "0" = réussie, "1" = n'a pas abouti ; toute autre valeur (ex. "4" observé) = non concluant.
+     *
+     * @return array{found:bool, status:?string, reference:?string, order:?string, amount:?float, currency:?string,
+     *               http:int, message:string, error:string}|null  null si FlexPay est injoignable / réponse illisible.
      */
     function flexpay_check_order(string $orderNumber): ?array
     {
+        $vide = ['found' => false, 'status' => null, 'reference' => null, 'order' => null, 'amount' => null, 'currency' => null, 'http' => 0, 'message' => '', 'error' => ''];
         if (!preg_match('/^[A-Za-z0-9]{10,60}$/', $orderNumber)) {
-            return ['found' => false, 'status' => null, 'reference' => null, 'amount' => null, 'currency' => null];
+            return ['error' => 'format_order_number'] + $vide;
         }
         $r = flexpay_http('GET', FLEXPAY_CHECK_URL . rawurlencode($orderNumber));
         if ($r['json'] === null) {
             return null;
         }
+        $base = ['http' => (int) $r['status'], 'message' => mb_substr((string) ($r['json']['message'] ?? ''), 0, 200)] + $vide;
         $t = $r['json']['transaction'] ?? null;
         if (!is_array($t)) {
-            return ['found' => false, 'status' => null, 'reference' => null, 'amount' => null, 'currency' => null];
+            return $base; // « transaction non trouvée »
         }
         return [
             'found'     => true,
             'status'    => isset($t['status']) ? (string) $t['status'] : null,
             'reference' => isset($t['reference']) ? (string) $t['reference'] : null,
+            'order'     => isset($t['orderNumber']) ? (string) $t['orderNumber'] : null,
             'amount'    => isset($t['amount']) ? (float) $t['amount'] : null,
             'currency'  => isset($t['currency']) ? strtoupper((string) $t['currency']) : null,
-        ];
+        ] + $base;
     }
 }
