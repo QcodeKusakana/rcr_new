@@ -64,6 +64,12 @@ jobs:
               "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" "$PWD/android/app/rcr-release.jks" > android/key.properties
             echo "APK signé avec la clé de production RCR."
           elif [ "$MODE" = "release" ]; then
+            MANQUE=""
+            [ -z "$KS_B64" ]  && MANQUE="$MANQUE ANDROID_KEYSTORE_BASE64"
+            [ -z "$KS_PASS" ] && MANQUE="$MANQUE ANDROID_KEYSTORE_PASSWORD"
+            [ -z "$KEY_ALIAS" ] && MANQUE="$MANQUE ANDROID_KEY_ALIAS"
+            [ -z "$KEY_PASS" ] && MANQUE="$MANQUE ANDROID_KEY_PASSWORD"
+            echo "::error title=Secrets introuvables par le workflow::Secrets manquants :${MANQUE}. Ils doivent figurer dans Settings > Secrets and variables > Actions > onglet Secrets > Repository secrets (pas Codespaces, pas Dependabot, pas Environment), avec exactement ces noms."
             echo "::error::Clé de signature absente. Un APK « release » signé avec une clé jetable ne peut PAS être installé par-dessus une version précédente (« application non installée ») et déclenche Play Protect. Créez la clé une seule fois (mobile_app/tool/creer_keystore.ps1) puis ajoutez les 4 secrets ANDROID_* (voir mobile_app/README.md). Pour un simple test, relancez en mode « debug »."
             exit 1
           else
