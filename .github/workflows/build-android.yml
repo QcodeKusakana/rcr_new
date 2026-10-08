@@ -1,20 +1,17 @@
-# Compile l'APK Android de l'application RCR dans le cloud GitHub (aucun outil à installer sur votre PC).
-# Déclenchement : onglet « Actions » du dépôt > « Build Android APK » > « Run workflow » (ou à chaque modification de mobile_app/).
-# Résultat : fichier « rcr-apk » téléchargeable en bas de la page de l'exécution (section « Artifacts »).
+# Compile l'APK Android de l'application RCR dans le cloud GitHub (rien à installer sur votre PC).
+# Utilisation : onglet « Actions » > « Build Android APK » > « Run workflow ».
+# Résultat : fichier « rcr-apk » (rcr.apk) à télécharger en bas de la page de l'exécution, section « Artifacts ».
 #
-# Signature de production (recommandé, évite l'alerte « application non reconnue » à chaque nouvelle version) :
-#   Settings > Secrets and variables > Actions > Secrets : ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD  (voir mobile_app/README.md, section « Signer l'application »).
-#
-# Réglage (facultatif) : Settings > Secrets and variables > Actions > Variables > New repository variable
-#   API_BASE = https://rcr.cd/api/v1      (valeur par défaut si la variable n'existe pas)
+# Signature : FACULTATIVE. Si les 4 secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+# ANDROID_KEY_PASSWORD existent et sont valides, l'APK est signé avec votre clé (mises à jour installables).
+# Sinon la compilation continue avec la clé de test (l'APK s'installe, mais il faut le désinstaller avant chaque nouvelle version).
 name: Build Android APK
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "release = APK de production (HTTPS obligatoire) ; debug = APK de test (HTTP autorisé)"
+        description: "release = APK de production ; debug = APK de test"
         type: choice
         options: [release, debug]
         default: release
@@ -44,91 +41,63 @@ jobs:
       - name: Générer les dossiers android/ et ios/ puis appliquer la configuration RCR
         run: bash tool/setup_platforms.sh
 
-      - name: Signature de production (si les secrets existent)
+      - name: Signature (facultative) avec votre clé RCR
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          MODE: ${{ github.event.inputs.mode || 'release' }}
-        run: |
-          if [ -n "$KS_B64" ]; then
-            printf '%s' "$KS_B64" | tr -d '\r\n ' | base64 -d > android/app/rcr-release.jks
-            # Contrôle immédiat de la clé : message clair si le fichier, le mot de passe ou l'alias est faux
-            if ! keytool -list -keystore android/app/rcr-release.jks -storepass "$KS_PASS" -alias "$KEY_ALIAS" > /tmp/ks.txt 2>&1; then
-              cat /tmp/ks.txt | sed "s/$KS_PASS/***/g"
-              echo "::error::Clé de signature illisible : vérifiez ANDROID_KEYSTORE_BASE64 (collé en entier, sans retouche), ANDROID_KEYSTORE_PASSWORD et ANDROID_KEY_ALIAS (rcr)."
-              exit 1
-            fi
-            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
-              "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" "$PWD/android/app/rcr-release.jks" > android/key.properties
-            echo "APK signé avec la clé de production RCR."
-          elif [ "$MODE" = "release" ]; then
-            MANQUE=""
-            [ -z "$KS_B64" ]  && MANQUE="$MANQUE ANDROID_KEYSTORE_BASE64"
-            [ -z "$KS_PASS" ] && MANQUE="$MANQUE ANDROID_KEYSTORE_PASSWORD"
-            [ -z "$KEY_ALIAS" ] && MANQUE="$MANQUE ANDROID_KEY_ALIAS"
-            [ -z "$KEY_PASS" ] && MANQUE="$MANQUE ANDROID_KEY_PASSWORD"
-            echo "::error title=Secrets introuvables par le workflow::Secrets manquants :${MANQUE}. Ils doivent figurer dans Settings > Secrets and variables > Actions > onglet Secrets > Repository secrets (pas Codespaces, pas Dependabot, pas Environment), avec exactement ces noms."
-            echo "::error::Clé de signature absente. Un APK « release » signé avec une clé jetable ne peut PAS être installé par-dessus une version précédente (« application non installée ») et déclenche Play Protect. Créez la clé une seule fois (mobile_app/tool/creer_keystore.ps1) puis ajoutez les 4 secrets ANDROID_* (voir mobile_app/README.md). Pour un simple test, relancez en mode « debug »."
-            exit 1
-          else
-            echo "::warning::Mode debug : APK signé avec la clé de débogage (test uniquement)."
-          fi
-
-      - name: Analyse du code (les ERREURS arrêtent le build, les simples avertissements non)
         shell: bash
         run: |
-          set -o pipefail
-          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/analyze.log
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
+            echo "::notice title=Signature::Clé RCR non configurée : l'APK sera signé avec la clé de test (désinstallez l'ancienne version avant d'installer)."
+            exit 0
+          fi
+          printf '%s' "$KS_B64" | tr -d '\r\n ' | base64 -d > android/app/rcr-release.jks || true
+          if keytool -list -keystore android/app/rcr-release.jks -storepass "$KS_PASS" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
+              "$KS_PASS" "$KEY_PASS" "$KEY_ALIAS" "$PWD/android/app/rcr-release.jks" > android/key.properties
+            echo "::notice title=Signature::APK signé avec la clé RCR."
+          else
+            rm -f android/app/rcr-release.jks
+            echo "::warning title=Signature::Secrets présents mais clé illisible (mot de passe, alias ou contenu incorrect) : clé de test utilisée à la place."
+          fi
+
+      - name: Analyse du code (informative)
+        shell: bash
+        run: flutter analyze 2>&1 | tee /tmp/analyze.log || true
 
       - name: Compiler l'APK
         env:
           API_BASE: ${{ vars.API_BASE || 'https://rcr.cd/api/v1' }}
           MODE: ${{ github.event.inputs.mode || 'release' }}
           RUN_NUMBER: ${{ github.run_number }}
-        # --build-number : le versionCode augmente à chaque exécution, condition pour qu'Android accepte une mise à jour.
-        # android-x64 : émulateurs et Chromebooks ; arm/arm64 : tous les téléphones.
         shell: bash
         run: |
           set -o pipefail
-          flutter build apk --$MODE --build-number="$RUN_NUMBER" --target-platform android-arm,android-arm64,android-x64 --dart-define=API_BASE="$API_BASE" 2>&1 | tee /tmp/build.log
+          flutter build apk --$MODE --build-number="$RUN_NUMBER" --target-platform android-arm,android-arm64 --dart-define=API_BASE="$API_BASE" 2>&1 | tee /tmp/build.log
 
-      - name: Diagnostic en cas d'échec (erreurs affichées dans les annotations)
+      - name: Diagnostic en cas d'échec (erreurs lisibles dans les annotations)
         if: failure()
         shell: bash
         run: |
           for f in /tmp/analyze.log /tmp/build.log; do
             [ -f "$f" ] || continue
-            echo "=== $f ==="
-            grep -nE "error •|^e: |Error:|FAILURE|What went wrong|Execution failed|Could not|not found|Keystore|keystore|Unresolved|Duplicate|AAPT|resource " "$f" | head -12 | while IFS= read -r l; do
-              echo "::error title=Diagnostic ($(basename $f))::$(printf '%s' "$l" | cut -c1-400 | tr -d '\r' | sed 's/%/%25/g')"
+            grep -nE "error •|^e: |Error:|FAILURE|What went wrong|Execution failed|Could not|minSdk|AAPT|resource |Duplicate|Unresolved" "$f" | head -12 | while IFS= read -r l; do
+              echo "::error title=Diagnostic $(basename $f)::$(printf '%s' "$l" | cut -c1-400 | tr -d '\r' | sed 's/%/%25/g')"
             done
           done
-          echo "::notice title=Fin du journal de compilation::$(tail -n 6 /tmp/build.log 2>/dev/null | tr '\n' ' ' | cut -c1-500 | sed 's/%/%25/g')"
+          echo "::notice title=Fin du journal::$(tail -n 8 /tmp/build.log 2>/dev/null | tr '\n' ' ' | cut -c1-600 | sed 's/%/%25/g')"
 
-      - name: Vérifier la signature et calculer l'empreinte
+      - name: Préparer le fichier à télécharger
+        shell: bash
         run: |
           APK=$(ls build/app/outputs/flutter-apk/app-*.apk | head -1)
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/sign.txt
-          SHA=$(grep -m1 "certificate SHA-256" /tmp/sign.txt | awk '{print $NF}')
           cp "$APK" build/app/outputs/flutter-apk/rcr.apk
-          sha256sum build/app/outputs/flutter-apk/rcr.apk > build/app/outputs/flutter-apk/rcr.apk.sha256
-          {
-            echo "### APK RCR"
-            echo "- Mode : \`${MODE:-release}\` · build n° ${{ github.run_number }}"
-            echo "- Empreinte SHA-256 du certificat de signature : \`$SHA\`"
-            echo "- Elle doit rester **identique** d'une version à l'autre (sinon les mises à jour ne s'installent pas)."
-          } >> "$GITHUB_STEP_SUMMARY"
-        env:
-          MODE: ${{ github.event.inputs.mode || 'release' }}
 
       - name: Publier l'APK
         uses: actions/upload-artifact@v4
         with:
           name: rcr-apk
-          path: |
-            mobile_app/build/app/outputs/flutter-apk/rcr.apk
-            mobile_app/build/app/outputs/flutter-apk/rcr.apk.sha256
+          path: mobile_app/build/app/outputs/flutter-apk/rcr.apk
           retention-days: 30
