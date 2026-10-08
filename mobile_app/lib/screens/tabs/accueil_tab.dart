@@ -123,7 +123,7 @@ class AccueilTab extends StatelessWidget {
     final j = m.joursRestants ?? 0;
     final ok = m.aJour;
     final couleur = !ok ? Rcr.red : (j <= 30 ? Rcr.gold : Rcr.green);
-    final valeur = ok ? (j >= 30 ? 1.0 : (j / 30).clamp(0.05, 1.0)) : 0.0;
+    final valeur = ok ? (j >= 30 ? 1.0 : (j / 30).clamp(0.05, 1.0).toDouble()) : 0.0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

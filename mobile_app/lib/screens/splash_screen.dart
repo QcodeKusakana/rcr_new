@@ -24,7 +24,7 @@ class SplashScreen extends StatelessWidget {
               tween: Tween(begin: 0.85, end: 1),
               duration: const Duration(milliseconds: 700),
               curve: Curves.easeOutBack,
-              builder: (context, v, child) => Opacity(opacity: v.clamp(0.0, 1.0), child: Transform.scale(scale: v, child: child)),
+              builder: (context, v, child) => Opacity(opacity: v.clamp(0.0, 1.0).toDouble(), child: Transform.scale(scale: v, child: child)),
               child: Image.asset('assets/logo.png', width: 148, height: 148),
             ),
             const SizedBox(height: 22),
