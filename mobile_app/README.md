@@ -52,7 +52,7 @@ Icône : le logo officiel RCR est généré par `tool/make_icons.py` (fichiers p
 les contrôles parentaux ou d'entreprise et, bientôt, la vérification des développeurs d'Android sont des décisions du téléphone, pas de l'APK.
 Ce qui est sous notre contrôle est appliqué (voir `tool/configure_android.dart` et `.github/workflows/build-android.yml`) :
 
-1. **Clé de signature stable (cause n°1 des « application non installée »)** : exécuter UNE fois `tool\creer_keystore.ps1`, puis enregistrer les 4 secrets GitHub
+1. **Clé de signature stable (cause n°1 des « application non installée »)** : exécuter UNE fois `tool\creer_keystore.ps1` (il installe Java si besoin, crée la clé avec un mot de passe aléatoire dans `%USERPROFILE%\rcr-cle-signature`, hors de Git, et vous guide pour enregistrer les 4 secrets GitHub)
    (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). Le workflow **refuse désormais** de produire un APK « release »
    sans cette clé : une clé jetable change à chaque build, Android refuse alors de mettre à jour l'application et Play Protect se méfie.
    Sauvegardez le `.jks` et ses mots de passe (perdre la clé = plus aucune mise à jour possible).

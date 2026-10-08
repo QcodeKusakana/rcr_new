@@ -71,7 +71,10 @@ jobs:
           fi
 
       - name: Analyse du code (les ERREURS arrêtent le build, les simples avertissements non)
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/analyze.log
 
       - name: Compiler l'APK
         env:
@@ -80,7 +83,23 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
         # --build-number : le versionCode augmente à chaque exécution, condition pour qu'Android accepte une mise à jour.
         # android-x64 : émulateurs et Chromebooks ; arm/arm64 : tous les téléphones.
-        run: flutter build apk --$MODE --build-number="$RUN_NUMBER" --target-platform android-arm,android-arm64,android-x64 --dart-define=API_BASE="$API_BASE"
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --$MODE --build-number="$RUN_NUMBER" --target-platform android-arm,android-arm64,android-x64 --dart-define=API_BASE="$API_BASE" 2>&1 | tee /tmp/build.log
+
+      - name: Diagnostic en cas d'échec (erreurs affichées dans les annotations)
+        if: failure()
+        shell: bash
+        run: |
+          for f in /tmp/analyze.log /tmp/build.log; do
+            [ -f "$f" ] || continue
+            echo "=== $f ==="
+            grep -nE "error •|^e: |Error:|FAILURE|What went wrong|Execution failed|Could not|not found|Keystore|keystore|Unresolved|Duplicate|AAPT|resource " "$f" | head -12 | while IFS= read -r l; do
+              echo "::error title=Diagnostic ($(basename $f))::$(printf '%s' "$l" | cut -c1-400 | tr -d '\r' | sed 's/%/%25/g')"
+            done
+          done
+          echo "::notice title=Fin du journal de compilation::$(tail -n 6 /tmp/build.log 2>/dev/null | tr '\n' ' ' | cut -c1-500 | sed 's/%/%25/g')"
 
       - name: Vérifier la signature et calculer l'empreinte
         run: |
