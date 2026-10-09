@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/models.dart';
 import '../../state/session.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
