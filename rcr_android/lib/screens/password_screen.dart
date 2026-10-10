@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -43,7 +44,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Mot de passe')),
+      appBar: rcrAppBar('Mot de passe'),
       body: Form(
         key: _form,
         child: ListView(padding: const EdgeInsets.all(16), children: [

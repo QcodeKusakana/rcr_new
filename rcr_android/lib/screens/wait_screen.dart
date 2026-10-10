@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -92,7 +93,7 @@ class _WaitScreenState extends State<WaitScreen> {
     return PopScope(
       canPop: _etat != _Etat.attente,
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.titre), automaticallyImplyLeading: _etat != _Etat.attente),
+        appBar: rcrAppBar(widget.titre, automaticallyImplyLeading: _etat != _Etat.attente),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(28),

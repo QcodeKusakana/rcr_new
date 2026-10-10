@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme.dart';
@@ -30,7 +31,7 @@ class _CardScreenState extends State<CardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Paiement par carte')),
+      appBar: rcrAppBar('Paiement par carte'),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(28),

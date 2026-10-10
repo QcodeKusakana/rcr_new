@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -99,7 +100,7 @@ class _DonScreenState extends State<DonScreen> {
   Widget build(BuildContext context) {
     final connecte = context.watch<Session>().membre != null;
     return Scaffold(
-      appBar: AppBar(title: Text(_renouvellement ? 'Renouveler mon don' : 'Soutenir le RCR')),
+      appBar: rcrAppBar(_renouvellement ? 'Renouveler mon don' : 'Soutenir le RCR'),
       body: Form(
         key: _form,
         child: ListView(padding: const EdgeInsets.all(16), children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -43,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return DoubleRetourQuitter(child: Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -106,6 +107,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

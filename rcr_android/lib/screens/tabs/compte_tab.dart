@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/navigation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -297,6 +298,11 @@ class _CompteTabState extends State<CompteTab> {
           style: FilledButton.styleFrom(backgroundColor: Rcr.red),
           onPressed: _deconnexion,
           icon: const Icon(Icons.logout), label: const Text('Se déconnecter'),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () => confirmerQuitter(context),
+          icon: const Icon(Icons.exit_to_app), label: const Text("Quitter l'application"),
         ),
       ]);
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/navigation.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -93,7 +94,7 @@ class _PayScreenState extends State<PayScreen> {
     if (m == null) return const Scaffold(body: SizedBox.shrink()); // session fermée pendant l'écran (jeton expiré)
     final premier = !m.premierPaiementFait;
     return Scaffold(
-      appBar: AppBar(title: Text(premier ? "Payer mon adhésion" : 'Renouveler ma cotisation')),
+      appBar: rcrAppBar(premier ? "Payer mon adhésion" : 'Renouveler ma cotisation'),
       body: _chargement
           ? const Center(child: CircularProgressIndicator())
           : ListView(padding: const EdgeInsets.all(16), children: [
