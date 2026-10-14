@@ -1272,8 +1272,8 @@ label{
 
                     <p>1. Je déclare rester fidèle aux idéaux du RCR.</p>
                     <p>2. J'accepte les communications politiques et administratives.</p>
-                    <p>3. Je soutiens le mouvement en tout lieu.</p>
-                    <p>4. Je contribuerai aux nouvelles adhésions.</p>
+                    <p>3. Je soutiens le Rassemblement des Chrétiens Républicains en tout lieu.</p>
+                    <p>4. Je m'engage à susciter de nouvelles adhesions.</p>
                     <p>5. J'accepte les conditions de cotisation et de traitement des données.</p>
 
                 </div>

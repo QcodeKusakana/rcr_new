@@ -253,7 +253,7 @@
 
             <div>
               <div class="portrait-frame">
-                <img loading="lazy" decoding="async" src="./images/president-fond.jpg" alt="Portrait du Président Benjamin Jean de Dieu BONIOMA ISELONGE">
+                <img loading="lazy" decoding="async" src="./assets/img/president.jpg" alt="Portrait du Président Benjamin Jean de Dieu BONIOMA ISELONGE">
               </div>
               <p class="portrait-caption">Président Fondateur du R.C.R</p>
             </div>

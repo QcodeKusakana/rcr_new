@@ -87,6 +87,7 @@ if (is_file(__DIR__ . '/functions/' . $page . '.funct.php')) {
 </head>
 
 <body id="body">
+<?php include __DIR__ . '/includes/intro.php'; ?>
 <script src="framework/jquery-2.2.4.min.js"></script>
 <script src="framework/jquery-ui.js"></script>
 <?php

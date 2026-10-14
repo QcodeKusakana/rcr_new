@@ -103,6 +103,24 @@ a{color:inherit;}
   line-height:1.8;
 }
 
+
+/* Sous-titre de l'en-tête : bandeau bleu (remplace l'ancien paragraphe) */
+.site-head p.site-head-sous{
+  display:inline-block;
+  max-width:none;
+  margin:0 auto;
+  padding:10px 22px;
+  background:#2F4A7A;
+  border-left:3px solid var(--gold);
+  border-right:3px solid var(--gold);
+  color:#fff;
+  font-family:var(--serif);
+  font-weight:500;
+  font-size:clamp(16px,2.6vw,21px);
+  line-height:1.5;
+  letter-spacing:.01em;
+}
+
 .site-head .rule{
   width:56px;
   height:2px;
@@ -523,18 +541,9 @@ footer{
 
   <div class="seal">R</div>
 
-  <p style="text-align:center!important;">
-    Rassemblement des Chrétiens Républicains
-  </p>
+  <h1>Qui sommes-nous&nbsp;?</h1>
 
-  <h1>Qui sommes-nous ?</h1>
-
-  <p>
-    Nous sommes un Rassemblement. Le rassemblement de toutes les personnes
-    qui expriment leur ferme volonté de résister à toutes les forces négatives
-    développées par ceux qui cherchent à écraser notre peuple, réduire à néant
-    nos rêves, nos espoirs, notre avenir ainsi que celui des générations futures.
-  </p>
+  <p class="site-head-sous">Dirigeants et Militants Chrétiens Républicains</p>
 
   <div class="rule"></div>
 
@@ -591,6 +600,46 @@ $aproposJs = array_map(function ($b) {
     $meta = json_decode((string) ($b['meta'] ?? ''), true) ?: [];
     return ['id' => $b['cle'], 'roman' => $meta['roman'] ?? '', 'label' => $b['titre'], 'group' => $meta['groupe'] ?? 'main', 'html' => bloc_rendu($b)];
 }, blocs('apropos'));
+?>
+<?php
+/* Chapitre d'ouverture « Présentation officielle » : reprend le paragraphe qui figurait sous le titre « Qui sommes-nous ? »,
+   la citation du mouvement et les repères clés (anciennement sur l'accueil). */
+/* Contenu déplacé depuis l'accueil (« Mes idées » → Présentation du Parti) + Objectifs (missions). */
+$presentationComplement = <<<'HTML'
+<h3>Mes idées</h3>
+<p>Construire une nation fondée sur les valeurs chrétiennes, la démocratie, la responsabilité, la justice et l'unité nationale.</p>
+<h3>Présentation du Parti</h3>
+<p><strong>Dénomination :</strong><br>Rassemblement des Chrétiens Républicains (RCR)</p>
+<p><strong>Personnalité juridique :</strong><br>Arrêté N°010/2006 du 30 janvier 2006</p>
+<p><strong>Devise :</strong></p>
+<ul>
+<li><strong>Amour :</strong> Amour de Dieu et du prochain</li>
+<li><strong>Démocratie :</strong> Liberté, responsabilité et devoir</li>
+<li><strong>Justice :</strong> Expression du droit et de la vérité</li>
+</ul>
+<h3>Objectifs</h3>
+<p><strong>Missions :</strong></p>
+<ol>
+<li>Reconnaissance constitutionnelle de Yahweh comme Ancêtre Suprême Nationale.</li>
+<li>Assurer la répartition des Ressources nationales à tous les Citoyens propriétaires.</li>
+<li>Garantir le développement harmonieux et durable du Nekongo.</li>
+</ol>
+HTML;
+$presentationOfficielle = [
+    'id'    => 'presentation-officielle',
+    'roman' => '0',
+    'label' => 'Présentation officielle',
+    'group' => 'main',
+    'html'  => '<p class="article-num">Présentation</p>'
+        . '<h2>Présentation officielle</h2>'
+        . '<div class="rule"></div>'
+        . '<p><strong>Nous sommes un Rassemblement.</strong> Le rassemblement de toutes les personnes qui expriment leur ferme volonté de résister à toutes les forces négatives développées par ceux qui cherchent à écraser notre peuple, réduire à néant nos rêves, nos espoirs, notre avenir ainsi que celui des générations futures.</p>'
+        . '<p><em>' . e(reglage('home_citation', '« Sans Rassemblement des Chrétiens Républicains, la démocratie Congolaise serait affaiblie »')) . '</em></p>'
+        . '<p>Monsieur <strong>Benjamin Jean de Dieu BONIOMA ISELONGE</strong> est en dignité et notoriété le Premier Plus Grand Serviteur et le Président Fondateur du mouvement.</p>'
+        . '<ul><li><strong>2006</strong> — année de création</li><li><strong>RCR</strong> — parti politique</li><li><strong>RDC</strong> — vision nationale</li></ul>'
+        . $presentationComplement,
+];
+array_unshift($aproposJs, $presentationOfficielle);
 ?>
 const sections = <?= json_encode($aproposJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
 
